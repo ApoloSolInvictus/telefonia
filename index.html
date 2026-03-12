@@ -12,9 +12,6 @@
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=Rajdhani:wght@300;400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
     
-    <!-- SDK DE TWILIO (Carga Principal de Voz) -->
-    <script src="https://sdk.twilio.com/js/voice/releases/2.10.1/twilio.js"></script>
-
     <!-- React Core -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -75,7 +72,6 @@
             const analyserRef = useRef(null);
             const dataArrayRef = useRef(null);
             const animationFrameRef = useRef(null);
-            const sourceRef = useRef(null);
 
             const addLog = (msg) => {
                 console.log(msg);
@@ -83,18 +79,44 @@
             };
 
             // ==========================================
-            // ENCENDIDO DEL TELÉFONO (Puro y Directo)
+            // INYECCIÓN DINÁMICA DE TWILIO
+            // (Asegura que Twilio exista antes de usarlo)
+            // ==========================================
+            const loadTwilioSDK = () => {
+                return new Promise((resolve, reject) => {
+                    if (window.Twilio) {
+                        resolve(window.Twilio);
+                        return;
+                    }
+                    const script = document.createElement('script');
+                    script.src = "https://sdk.twilio.com/js/voice/releases/2.10.1/twilio.min.js";
+                    script.async = true;
+                    script.onload = () => {
+                        console.log("Twilio SDK cargado exitosamente.");
+                        resolve(window.Twilio);
+                    };
+                    script.onerror = () => reject(new Error("Bloqueo de Navegador: Apaga el AdBlocker o Brave Shields para conectar."));
+                    document.body.appendChild(script);
+                });
+            };
+
+            // ==========================================
+            // ENCENDIDO DEL TELÉFONO
             // ==========================================
             const handlePowerOn = async () => {
                 setStatus('BOOT');
                 addLog("INICIANDO ENLACE SATELITAL...");
                 
                 try {
-                    // 1. Pedir micrófono al usuario
+                    // 1. Forzar descarga de Twilio en tiempo real
+                    addLog("DESCARGANDO MOTOR DE VOZ...");
+                    const TwilioObj = await loadTwilioSDK();
+
+                    // 2. Pedir micrófono al usuario
                     addLog("SOLICITANDO ACCESO A MICRÓFONO...");
                     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                     
-                    // 2. Traer Token del Backend Heroku
+                    // 3. Traer Token del Backend Heroku
                     addLog("OBTENIENDO TOKEN DE SEGURIDAD...");
                     const response = await fetch(`${BACKEND_URL}/api/twilio-token`);
                     
@@ -108,8 +130,8 @@
 
                     addLog("TOKEN RECIBIDO. REGISTRANDO RED...");
 
-                    // 3. Crear dispositivo Twilio (Usando la librería de la cabecera directamente)
-                    const device = new Twilio.Device(data.token, {
+                    // 4. Crear dispositivo Twilio garantizado
+                    const device = new TwilioObj.Device(data.token, {
                         codecPreferences: ['opus', 'pcmu'],
                         fakeLocalDTMF: true,
                         enableRingingState: true
@@ -126,9 +148,9 @@
 
                     // Evento de error de Twilio
                     device.on('error', (twilioError) => {
-                        console.error(twilioError);
+                        console.error("Twilio Internal Error:", twilioError);
                         addLog(`TWILIO ERR: ${twilioError.message}`);
-                        if(twilioError.code === 31205) addLog("REVISE SU ACCOUNT SID.");
+                        if(twilioError.code === 31205) addLog("REVISE SU ACCOUNT SID EN HEROKU.");
                         setStatus('ERROR');
                     });
 
@@ -155,7 +177,6 @@
 
             const formatTime = (s) => `${Math.floor(s / 60).toString().padStart(2, '0')}:${(s % 60).toString().padStart(2, '0')}`;
 
-            // Botones del marcador (Con sonido local)
             const handleDial = (digit) => {
                 if (number.length < 16) setNumber(prev => prev + digit);
                 try {
@@ -205,8 +226,8 @@
                 try {
                     audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
                     analyserRef.current = audioContextRef.current.createAnalyser();
-                    sourceRef.current = audioContextRef.current.createMediaStreamSource(stream);
-                    sourceRef.current.connect(analyserRef.current);
+                    const source = audioContextRef.current.createMediaStreamSource(stream);
+                    source.connect(analyserRef.current);
                     analyserRef.current.fftSize = 256;
                     updateAudioVisualizer();
                 } catch(e) {}
