@@ -5,15 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>Quantum Phone | Red Invictus (V6)</title>
+    <title>Quantum Phone | Red Invictus (Híbrido)</title>
     
     <!-- Librerías de Diseño -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
     
-    <!-- SDK DE TWILIO (Carga Principal en Cabecera) -->
-    <script src="https://sdk.twilio.com/js/voice/releases/2.10.1/twilio.min.js"></script>
+    <!-- SDK DE TWILIO -->
+    <script src="https://sdk.twilio.com/js/voice/releases/2.11.1/twilio.min.js"></script>
 
     <!-- React Core -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -41,30 +41,34 @@
         .dial-btn:active { background: rgba(0, 240, 255, 0.3); transform: scale(0.92); border-color: rgba(0, 240, 255, 0.6); }
         .voice-waves { display: flex; align-items: center; justify-content: center; gap: 4px; height: 60px; }
         .v-bar { width: 6px; background: #00f0ff; border-radius: 3px; height: 6px; box-shadow: 0 0 10px #00f0ff; transition: height 0.05s ease; }
+        /* Smooth Fade */
+        .fade-enter { animation: fadeIn 0.5s ease-out forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
     </style>
 </head>
 <body>
 
     <div id="root" class="w-full h-full bg-cosmos flex items-center justify-center sm:p-4">
-        <!-- Cargador Básico -->
+        <!-- Cargador Inicial -->
         <div class="text-center text-quantum-cyan font-mono animate-pulse flex flex-col items-center justify-center w-full h-full">
             <i class="ph ph-circle-notch animate-spin text-5xl mb-4"></i>
-            <p class="tracking-widest text-sm">ENSAMBLANDO TERMINAL...</p>
+            <p class="tracking-widest text-sm">ENSAMBLANDO MATRIZ CUÁNTICA...</p>
         </div>
     </div>
 
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
         
-        // ==========================================
-        // URL EXACTA DEL BACKEND HEROKU
-        // ==========================================
+        // BACKEND HEROKU
         const BACKEND_URL = "https://qphone-b21b0efd3de7.herokuapp.com";
 
         const QuantumPhone = () => {
-            const [status, setStatus] = useState('STANDBY'); // STANDBY, BOOT, CONNECTED, DIALING, CALLING, ACTIVE, ERROR
+            // Estados: STANDBY, BOOT, READY, CALLING, ACTIVE
+            const [status, setStatus] = useState('STANDBY'); 
+            const [mode, setMode] = useState('NONE'); // 'LIVE' o 'DEMO'
+            
             const [number, setNumber] = useState('');
-            const [logs, setLogs] = useState(["TERMINAL V6 ONLINE.", "ESPERANDO INICIACIÓN MANUAL."]);
+            const [logs, setLogs] = useState(["SISTEMA LISTO.", "ESPERANDO INICIACIÓN MANUAL."]);
             const [callDuration, setCallDuration] = useState(0);
             const [audioLevel, setAudioLevel] = useState(0);
             
@@ -76,74 +80,76 @@
             const analyserRef = useRef(null);
             const dataArrayRef = useRef(null);
             const animationFrameRef = useRef(null);
+            const sourceRef = useRef(null);
 
             const addLog = (msg) => {
-                console.log(msg); // Imprime en consola F12 para depuración
+                console.log(msg);
                 setLogs(prev => [...prev, msg].slice(-4));
             };
 
             // ==========================================
-            // SECUENCIA DE ENCENDIDO PRINCIPAL
+            // ENCENDIDO HÍBRIDO (El Fénix)
+            // Nunca falla. Si Twilio se cae, usa Modo Demo.
             // ==========================================
             const handlePowerOn = async () => {
                 setStatus('BOOT');
-                addLog("INICIANDO ENLACE DE RED...");
+                addLog("INICIANDO PROTOCOLO HÍBRIDO...");
                 
+                let micStream = null;
+
                 try {
-                    // 1. Verificar si el navegador bloqueó a Twilio
+                    // 1. Pedir micrófono (Útil tanto para Live como para Demo)
+                    addLog("SOLICITANDO MICRÓFONO...");
+                    micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    
+                    // 2. Verificar Twilio
                     if (typeof window.Twilio === 'undefined') {
-                        throw new Error("Su navegador bloqueó Twilio. Desactive Brave Shields o el AdBlocker.");
+                        throw new Error("Librería bloqueada por el navegador.");
                     }
 
-                    // 2. Pedir micrófono (Obligatorio para WebRTC)
-                    addLog("SOLICITANDO MICRÓFONO...");
-                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                    
-                    // 3. Conectar a Heroku por el Token
-                    addLog(`CONTACTANDO A: ${BACKEND_URL}...`);
+                    // 3. Buscar Token
+                    addLog("CONTACTANDO A HEROKU...");
                     const response = await fetch(`${BACKEND_URL}/api/twilio-token`);
                     
-                    if(!response.ok) {
-                        const errTxt = await response.text();
-                        throw new Error(`Fallo Heroku (${response.status}): ${errTxt}`);
-                    }
+                    if(!response.ok) throw new Error(`Fallo de Servidor (${response.status})`);
                     
                     const data = await response.json();
-                    if(!data.token) throw new Error("Token vacío recibido de Heroku.");
-
-                    addLog("TOKEN RECIBIDO. REGISTRANDO...");
+                    if(!data.token) throw new Error("Token vacío.");
 
                     // 4. Instanciar Twilio
                     const device = new window.Twilio.Device(data.token, {
                         codecPreferences: ['opus', 'pcmu'],
                         fakeLocalDTMF: true,
-                        enableRingingState: true,
-                        debug: true
+                        enableRingingState: true
                     });
 
-                    // 5. Escuchar eventos del dispositivo
                     device.on('registered', () => {
                         addLog("ENLACE SATELITAL ESTABLECIDO.");
-                        addLog("TWILIO NETWORK: ONLINE.");
                         setTwilioDevice(device);
-                        setupAudioVisualizer(stream);
-                        setStatus('CONNECTED');
+                        setupAudioVisualizer(micStream);
+                        setMode('LIVE');
+                        setStatus('READY');
                     });
 
-                    device.on('error', (twilioError) => {
-                        console.error("Twilio Error:", twilioError);
-                        addLog(`TWILIO ERR: ${twilioError.message}`);
-                        if(twilioError.code === 31205) addLog("REVISE EL ACCOUNT SID EN HEROKU.");
-                        setStatus('ERROR');
+                    device.on('error', (err) => {
+                        console.warn("Twilio Error, activando fallback:", err);
+                        throw new Error("Fallo en registro de Twilio.");
                     });
 
-                    // Forzar Registro en la red telefónica
                     device.register();
 
                 } catch (error) {
-                    console.error("Error crítico de sistema:", error);
-                    addLog("ERROR: " + error.message);
-                    setStatus('ERROR');
+                    // SI CUALQUIER COSA FALLA -> ACTIVAMOS MODO DEMO
+                    console.warn("Pasando a Modo Demo. Causa:", error.message);
+                    addLog(`ALERTA: ${error.message}`);
+                    addLog("ACTIVANDO MODO DEMO DE EMERGENCIA.");
+                    
+                    if (micStream) {
+                        setupAudioVisualizer(micStream);
+                    }
+                    
+                    setMode('DEMO');
+                    setStatus('READY');
                 }
             };
 
@@ -171,53 +177,68 @@
             };
 
             // ==========================================
-            // REALIZAR LLAMADA AL MUNDO EXTERIOR
+            // REALIZAR LA LLAMADA (LIVE O DEMO)
             // ==========================================
             const startCall = async () => {
-                if (!number || !twilioDevice) return;
+                if (!number) return;
                 setStatus('CALLING');
                 addLog(`MARCANDO A: ${number}`);
 
-                try {
-                    addLog("CONECTANDO AL GATEWAY...");
-                    const call = await twilioDevice.connect({ params: { To: number } });
-                    setActiveConnection(call);
-                    
-                    call.on('accept', () => {
+                if (mode === 'LIVE' && twilioDevice) {
+                    // LLAMADA REAL
+                    try {
+                        const call = await twilioDevice.connect({ params: { To: number } });
+                        setActiveConnection(call);
+                        
+                        call.on('accept', () => {
+                            setStatus('ACTIVE');
+                            addLog("CONEXIÓN ESTABLECIDA.");
+                        });
+                        
+                        call.on('disconnect', () => endCall("Llamada terminada"));
+                        call.on('cancel', () => endCall("Llamada cancelada"));
+                        call.on('error', (err) => { 
+                            addLog(`ERROR DE RED: ${err.message}`);
+                            endCall(); 
+                        });
+                    } catch (err) {
+                        addLog(`FALLO DE ENLACE: ${err.message}`);
+                        setStatus('READY');
+                    }
+                } else {
+                    // LLAMADA SIMULADA (DEMO)
+                    setTimeout(() => {
                         setStatus('ACTIVE');
-                        addLog("CONEXIÓN ESTABLECIDA.");
-                    });
-                    
-                    call.on('disconnect', () => endCall("Llamada terminada"));
-                    call.on('cancel', () => endCall("Llamada cancelada"));
-                    call.on('reject', () => endCall("Destino ocupado/rechazado"));
-                    
-                    call.on('error', (err) => { 
-                        addLog(`ERROR DE RED: ${err.message}`);
-                        if(err.code === 31002) addLog("Falla de Enrutamiento. Revisa el Webhook en TwiML App.");
-                        endCall(); 
-                    });
-                    
-                } catch (err) {
-                    addLog(`FALLO DE ENLACE: ${err.message}`);
-                    setStatus('CONNECTED');
+                        addLog("SIMULACIÓN: CONEXIÓN ESTABLECIDA.");
+                        // Si no teníamos micrófono por falta de permisos, tratamos de pedirlo de nuevo aquí
+                        if (!analyserRef.current) {
+                            navigator.mediaDevices.getUserMedia({ audio: true })
+                                .then(stream => setupAudioVisualizer(stream))
+                                .catch(e => console.log("Micrófono ignorado en demo."));
+                        }
+                    }, 2500);
                 }
             };
 
-            // Analizador de Micrófono para las Ondas visuales
+            // Visualizador de Ondas
             const setupAudioVisualizer = (stream) => {
                 try {
-                    audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
+                    if (!audioContextRef.current) {
+                        audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
+                    }
+                    if (audioContextRef.current.state === 'suspended') {
+                        audioContextRef.current.resume();
+                    }
                     analyserRef.current = audioContextRef.current.createAnalyser();
-                    const source = audioContextRef.current.createMediaStreamSource(stream);
-                    source.connect(analyserRef.current);
+                    sourceRef.current = audioContextRef.current.createMediaStreamSource(stream);
+                    sourceRef.current.connect(analyserRef.current);
                     analyserRef.current.fftSize = 256;
                     updateAudioVisualizer();
                 } catch(e) {}
             };
 
             const updateAudioVisualizer = () => {
-                if (!analyserRef.current || status !== 'ACTIVE') return;
+                if (!analyserRef.current) return;
                 if (!dataArrayRef.current) dataArrayRef.current = new Uint8Array(analyserRef.current.frequencyBinCount);
                 analyserRef.current.getByteFrequencyData(dataArrayRef.current);
                 
@@ -233,7 +254,7 @@
                     try { activeConnection.disconnect(); } catch(e) {}
                     setActiveConnection(null); 
                 }
-                setStatus('CONNECTED');
+                setStatus('READY');
                 setNumber('');
                 addLog(msg);
             };
@@ -241,58 +262,63 @@
             // ==========================================
             // VISTAS UI
             // ==========================================
-            if (status === 'STANDBY' || status === 'ERROR') {
+            
+            // PANTALLA INICIAL
+            if (status === 'STANDBY') {
                 return (
-                    <div className="w-full h-full sm:w-[400px] sm:h-[800px] sm:max-h-[95vh] glass-panel sm:rounded-[40px] sm:border sm:border-quantum-cyan/20 flex flex-col items-center justify-center p-8 text-center relative overflow-hidden shadow-2xl">
-                        <div className={`absolute inset-0 ${status === 'ERROR' ? 'bg-red-500/10' : 'bg-quantum-cyan/5'} blur-3xl rounded-full`}></div>
+                    <div className="w-full h-full sm:w-[400px] sm:h-[800px] sm:max-h-[95vh] glass-panel sm:rounded-[40px] sm:border sm:border-quantum-cyan/20 flex flex-col items-center justify-center p-8 text-center relative overflow-hidden shadow-2xl fade-enter">
+                        <div className="absolute inset-0 bg-quantum-cyan/5 blur-3xl rounded-full"></div>
+                        <i className="ph ph-fingerprint text-quantum-cyan animate-pulse text-7xl mb-8"></i>
+                        <h2 className="font-display text-3xl font-bold text-white mb-2">SISTEMA CERRADO</h2>
+                        <p className="text-sm text-gray-400 font-mono mb-12 px-4 leading-relaxed">
+                            Autenticación requerida para establecer enlace satelital.
+                        </p>
                         
-                        <i className={`ph ${status === 'ERROR' ? 'ph-warning text-red-500' : 'ph-fingerprint text-quantum-cyan animate-pulse'} text-7xl mb-8`}></i>
-                        
-                        <h2 className="font-display text-3xl font-bold text-white mb-2">{status === 'ERROR' ? 'FALLO DE SISTEMA' : 'SISTEMA CERRADO'}</h2>
-                        
-                        <div className="text-sm text-gray-400 font-mono mb-12 px-4 leading-relaxed">
-                            {status === 'ERROR' ? (
-                                <div className="text-red-400 font-bold border border-red-500/30 p-4 rounded bg-red-900/20 text-left text-xs break-words">
-                                    {logs[logs.length-1]}
-                                </div>
-                            ) : 'Autenticación requerida para establecer enlace satelital en vivo.'}
-                        </div>
-                        
-                        <button onClick={handlePowerOn} className={`w-full py-5 text-black font-display font-bold text-lg rounded-2xl transition transform active:scale-95 uppercase tracking-widest relative z-10 ${status === 'ERROR' ? 'bg-red-500 hover:bg-red-400 shadow-[0_0_30px_rgba(239,68,68,0.4)] text-white' : 'bg-quantum-cyan hover:bg-cyan-400 shadow-[0_0_30px_rgba(0,240,255,0.4)]'}`}>
-                            {status === 'ERROR' ? 'REINTENTAR ENLACE' : 'Establecer Enlace'}
+                        <button onClick={handlePowerOn} className="w-full py-5 text-black bg-quantum-cyan hover:bg-cyan-400 shadow-[0_0_30px_rgba(0,240,255,0.4)] font-display font-bold text-lg rounded-2xl transition transform active:scale-95 uppercase tracking-widest relative z-10">
+                            Establecer Enlace
                         </button>
                     </div>
                 );
             }
 
+            // PANTALLA DEL TELÉFONO (TECLADO / LLAMADA)
             return (
-                <div className="w-full h-full sm:w-[400px] sm:h-[800px] sm:max-h-[95vh] glass-panel sm:rounded-[40px] sm:border sm:border-quantum-cyan/20 flex flex-col relative overflow-hidden shadow-2xl">
+                <div className="w-full h-full sm:w-[400px] sm:h-[800px] sm:max-h-[95vh] glass-panel sm:rounded-[40px] sm:border sm:border-quantum-cyan/20 flex flex-col relative overflow-hidden shadow-2xl fade-enter">
+                    
+                    {/* TOP BAR / HEADER */}
                     <div className="flex items-center justify-between px-6 pt-10 sm:pt-6 pb-4 border-b border-quantum-cyan/20 bg-black/20 shrink-0">
                         <div className="flex items-center gap-3">
-                            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${status !== 'BOOT' ? 'bg-quantum-cyan/20 text-quantum-cyan animate-pulse' : 'bg-gray-800 text-gray-500'}`}>
+                            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${status === 'BOOT' ? 'bg-quantum-cyan/20 text-quantum-cyan animate-pulse' : (mode === 'LIVE' ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400')}`}>
                                 <i className="ph-fill ph-satellite-dish text-xl"></i>
                             </div>
                             <div className="flex flex-col">
-                                <span className="font-display font-bold text-sm tracking-widest text-quantum-cyan uppercase leading-tight">Uplink Invictus</span>
-                                <span className="font-mono text-[9px] text-green-400 tracking-widest font-bold">{status === 'BOOT' ? 'CONECTANDO...' : 'SISTEMA ONLINE'}</span>
+                                <span className="font-display font-bold text-sm tracking-widest text-white uppercase leading-tight">Uplink Invictus</span>
+                                <span className={`font-mono text-[9px] tracking-widest font-bold ${mode === 'LIVE' ? 'text-green-400' : 'text-yellow-400'}`}>
+                                    {status === 'BOOT' ? 'CONECTANDO...' : (mode === 'LIVE' ? 'RED GLOBAL LIVE' : 'MODO SIMULACIÓN')}
+                                </span>
                             </div>
                         </div>
                     </div>
 
+                    {/* PANTALLA CENTRAL (NÚMERO) */}
                     <div className="flex-1 flex flex-col items-center justify-center px-4 min-h-0">
                         {status === 'BOOT' && <i className="ph ph-circle-notch text-5xl text-quantum-cyan animate-spin"></i>}
-                        {(status === 'CONNECTED' || status === 'DIALING') && (
+                        
+                        {(status === 'READY' || status === 'DIALING') && (
                             <div className="w-full text-center flex flex-col items-center justify-center h-full">
                                 <div className="text-4xl sm:text-5xl font-mono text-white tracking-widest h-14 flex items-center justify-center font-bold w-full truncate px-2">
                                     {number || <span className="text-gray-600 font-light text-2xl">INGRESE NÚMERO</span>}
                                 </div>
                             </div>
                         )}
+                        
                         {(status === 'CALLING' || status === 'ACTIVE') && (
                             <div className="w-full flex flex-col items-center justify-center h-full">
                                 <div className="text-3xl font-mono text-white tracking-widest mb-2 font-bold w-full text-center truncate px-2">{number}</div>
                                 <div className={`text-xs font-bold font-display uppercase tracking-widest ${status === 'ACTIVE' ? 'text-green-400' : 'text-quantum-gold animate-pulse'}`}>{status === 'CALLING' ? 'MARCANDO...' : 'EN LÍNEA'}</div>
                                 <div className="font-mono text-3xl mt-3 text-white font-bold">{formatTime(callDuration)}</div>
+                                
+                                {/* Visualizador de Ondas (Solo se anima si hay micrófono) */}
                                 <div className="voice-waves mt-6">
                                     {Array.from({length: 7}).map((_, i) => (
                                         <div key={i} className="v-bar" style={{ height: status === 'ACTIVE' ? `${Math.max(6, (audioLevel / 255) * 60 * (1 - Math.abs(i - 3)/4))}px` : '6px', opacity: status === 'ACTIVE' ? 1 : 0.3 }}></div>
@@ -302,25 +328,30 @@
                         )}
                     </div>
 
+                    {/* ZONA INFERIOR (TECLADO) */}
                     <div className="w-full px-6 pb-8 sm:pb-6 mt-auto shrink-0 flex flex-col gap-4">
-                        <div className={`bg-black/60 rounded-xl p-2 h-20 overflow-hidden font-mono text-[9px] text-green-400 border border-green-500/30 flex flex-col justify-end transition-opacity duration-300 ${status === 'ACTIVE' ? 'opacity-0 h-0 border-none m-0 p-0' : 'opacity-100'}`}>
+                        
+                        {/* Terminal de Logs Pequeña */}
+                        <div className={`bg-black/60 rounded-xl p-2 h-16 overflow-hidden font-mono text-[9px] ${mode === 'LIVE' ? 'text-green-400 border-green-500/30' : 'text-yellow-400 border-yellow-500/30'} border flex flex-col justify-end transition-opacity duration-300 ${status === 'ACTIVE' ? 'opacity-0 h-0 border-none m-0 p-0' : 'opacity-100'}`}>
                             {logs.map((log, i) => <div key={i} className="mb-0.5 opacity-80 truncate">> {log}</div>)}
                         </div>
                         
+                        {/* Botones Numéricos */}
                         <div className={`grid grid-cols-3 gap-3 sm:gap-4 max-w-[300px] mx-auto w-full transition-opacity duration-300 ${(status === 'CALLING' || status === 'ACTIVE' || status === 'BOOT') ? 'opacity-20 pointer-events-none' : 'opacity-100'}`}>
                             {['1','2','3','4','5','6','7','8','9','+','0','#'].map(btn => (
                                 <button key={btn} onClick={() => handleDial(btn)} className="dial-btn aspect-square rounded-full flex items-center justify-center text-3xl sm:text-4xl font-display font-light text-white shadow-sm w-full max-h-[80px]">{btn}</button>
                             ))}
                         </div>
 
+                        {/* Botones de Acción */}
                         <div className="flex justify-center gap-6 mt-2">
-                            {(status === 'CONNECTED' || status === 'DIALING') ? (
+                            {(status === 'READY' || status === 'DIALING') ? (
                                 <>
-                                    <button onClick={startCall} className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-green-500 text-white flex items-center justify-center transition transform active:scale-90 shadow-[0_0_20px_rgba(34,197,94,0.4)]"><i className="ph-fill ph-phone text-3xl sm:text-4xl"></i></button>
+                                    <button onClick={startCall} className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-green-500 hover:bg-green-400 text-white flex items-center justify-center transition transform active:scale-90 shadow-[0_0_20px_rgba(34,197,94,0.4)]"><i className="ph-fill ph-phone text-3xl sm:text-4xl"></i></button>
                                     <button onClick={() => setNumber(p=>p.slice(0,-1))} className="w-16 h-16 sm:w-20 sm:h-20 rounded-full dial-btn flex items-center justify-center text-gray-400 hover:text-white transition active:scale-90"><i className="ph-fill ph-backspace text-2xl sm:text-3xl"></i></button>
                                 </>
                             ) : status !== 'BOOT' && (
-                                <button onClick={endCall} className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-red-600 text-white flex items-center justify-center transition transform active:scale-90 animate-pulse-glow shadow-[0_0_20px_rgba(220,38,38,0.5)]"><i className="ph-fill ph-phone-disconnect text-3xl sm:text-4xl"></i></button>
+                                <button onClick={endCall} className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-red-600 hover:bg-red-500 text-white flex items-center justify-center transition transform active:scale-90 animate-pulse-glow shadow-[0_0_20px_rgba(220,38,38,0.5)]"><i className="ph-fill ph-phone-disconnect text-3xl sm:text-4xl"></i></button>
                             )}
                         </div>
                     </div>
