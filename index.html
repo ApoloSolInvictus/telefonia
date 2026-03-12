@@ -5,13 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>Quantum Phone | Red Invictus (LIVE)</title>
+    <title>Quantum Phone | Red Invictus (V6)</title>
     
     <!-- Librerías de Diseño -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=Rajdhani:wght@300;400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
     
+    <!-- SDK DE TWILIO (Carga Principal en Cabecera) -->
+    <script src="https://sdk.twilio.com/js/voice/releases/2.10.1/twilio.min.js"></script>
+
     <!-- React Core -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -43,9 +46,10 @@
 <body>
 
     <div id="root" class="w-full h-full bg-cosmos flex items-center justify-center sm:p-4">
+        <!-- Cargador Básico -->
         <div class="text-center text-quantum-cyan font-mono animate-pulse flex flex-col items-center justify-center w-full h-full">
             <i class="ph ph-circle-notch animate-spin text-5xl mb-4"></i>
-            <p class="tracking-widest text-sm">SINTETIZANDO CÓDIGO...</p>
+            <p class="tracking-widest text-sm">ENSAMBLANDO TERMINAL...</p>
         </div>
     </div>
 
@@ -53,14 +57,14 @@
         const { useState, useEffect, useRef } = React;
         
         // ==========================================
-        // URL DEL BACKEND (RAÍZ DEL SERVIDOR)
+        // URL EXACTA DEL BACKEND HEROKU
         // ==========================================
         const BACKEND_URL = "https://qphone-b21b0efd3de7.herokuapp.com";
 
         const QuantumPhone = () => {
             const [status, setStatus] = useState('STANDBY'); // STANDBY, BOOT, CONNECTED, DIALING, CALLING, ACTIVE, ERROR
             const [number, setNumber] = useState('');
-            const [logs, setLogs] = useState(["SISTEMA LISTO.", "ESPERANDO INICIACIÓN MANUAL."]);
+            const [logs, setLogs] = useState(["TERMINAL V6 ONLINE.", "ESPERANDO INICIACIÓN MANUAL."]);
             const [callDuration, setCallDuration] = useState(0);
             const [audioLevel, setAudioLevel] = useState(0);
             
@@ -74,70 +78,50 @@
             const animationFrameRef = useRef(null);
 
             const addLog = (msg) => {
-                console.log(msg);
+                console.log(msg); // Imprime en consola F12 para depuración
                 setLogs(prev => [...prev, msg].slice(-4));
             };
 
             // ==========================================
-            // INYECCIÓN DINÁMICA DE TWILIO
-            // (Asegura que Twilio exista antes de usarlo)
-            // ==========================================
-            const loadTwilioSDK = () => {
-                return new Promise((resolve, reject) => {
-                    if (window.Twilio) {
-                        resolve(window.Twilio);
-                        return;
-                    }
-                    const script = document.createElement('script');
-                    script.src = "https://sdk.twilio.com/js/voice/releases/2.10.1/twilio.min.js";
-                    script.async = true;
-                    script.onload = () => {
-                        console.log("Twilio SDK cargado exitosamente.");
-                        resolve(window.Twilio);
-                    };
-                    script.onerror = () => reject(new Error("Bloqueo de Navegador: Apaga el AdBlocker o Brave Shields para conectar."));
-                    document.body.appendChild(script);
-                });
-            };
-
-            // ==========================================
-            // ENCENDIDO DEL TELÉFONO
+            // SECUENCIA DE ENCENDIDO PRINCIPAL
             // ==========================================
             const handlePowerOn = async () => {
                 setStatus('BOOT');
-                addLog("INICIANDO ENLACE SATELITAL...");
+                addLog("INICIANDO ENLACE DE RED...");
                 
                 try {
-                    // 1. Forzar descarga de Twilio en tiempo real
-                    addLog("DESCARGANDO MOTOR DE VOZ...");
-                    const TwilioObj = await loadTwilioSDK();
+                    // 1. Verificar si el navegador bloqueó a Twilio
+                    if (typeof window.Twilio === 'undefined') {
+                        throw new Error("Su navegador bloqueó Twilio. Desactive Brave Shields o el AdBlocker.");
+                    }
 
-                    // 2. Pedir micrófono al usuario
-                    addLog("SOLICITANDO ACCESO A MICRÓFONO...");
+                    // 2. Pedir micrófono (Obligatorio para WebRTC)
+                    addLog("SOLICITANDO MICRÓFONO...");
                     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                     
-                    // 3. Traer Token del Backend Heroku
-                    addLog("OBTENIENDO TOKEN DE SEGURIDAD...");
+                    // 3. Conectar a Heroku por el Token
+                    addLog(`CONTACTANDO A: ${BACKEND_URL}...`);
                     const response = await fetch(`${BACKEND_URL}/api/twilio-token`);
                     
                     if(!response.ok) {
                         const errTxt = await response.text();
-                        throw new Error(`Fallo de Servidor (${response.status}): ${errTxt}`);
+                        throw new Error(`Fallo Heroku (${response.status}): ${errTxt}`);
                     }
                     
                     const data = await response.json();
                     if(!data.token) throw new Error("Token vacío recibido de Heroku.");
 
-                    addLog("TOKEN RECIBIDO. REGISTRANDO RED...");
+                    addLog("TOKEN RECIBIDO. REGISTRANDO...");
 
-                    // 4. Crear dispositivo Twilio garantizado
-                    const device = new TwilioObj.Device(data.token, {
+                    // 4. Instanciar Twilio
+                    const device = new window.Twilio.Device(data.token, {
                         codecPreferences: ['opus', 'pcmu'],
                         fakeLocalDTMF: true,
-                        enableRingingState: true
+                        enableRingingState: true,
+                        debug: true
                     });
 
-                    // Evento de éxito
+                    // 5. Escuchar eventos del dispositivo
                     device.on('registered', () => {
                         addLog("ENLACE SATELITAL ESTABLECIDO.");
                         addLog("TWILIO NETWORK: ONLINE.");
@@ -146,19 +130,18 @@
                         setStatus('CONNECTED');
                     });
 
-                    // Evento de error de Twilio
                     device.on('error', (twilioError) => {
-                        console.error("Twilio Internal Error:", twilioError);
+                        console.error("Twilio Error:", twilioError);
                         addLog(`TWILIO ERR: ${twilioError.message}`);
-                        if(twilioError.code === 31205) addLog("REVISE SU ACCOUNT SID EN HEROKU.");
+                        if(twilioError.code === 31205) addLog("REVISE EL ACCOUNT SID EN HEROKU.");
                         setStatus('ERROR');
                     });
 
-                    // Forzar el registro
+                    // Forzar Registro en la red telefónica
                     device.register();
 
                 } catch (error) {
-                    console.error("Error al iniciar:", error);
+                    console.error("Error crítico de sistema:", error);
                     addLog("ERROR: " + error.message);
                     setStatus('ERROR');
                 }
@@ -188,7 +171,7 @@
             };
 
             // ==========================================
-            // REALIZAR LA LLAMADA AL MUNDO REAL
+            // REALIZAR LLAMADA AL MUNDO EXTERIOR
             // ==========================================
             const startCall = async () => {
                 if (!number || !twilioDevice) return;
@@ -205,9 +188,9 @@
                         addLog("CONEXIÓN ESTABLECIDA.");
                     });
                     
-                    call.on('disconnect', () => endCall());
+                    call.on('disconnect', () => endCall("Llamada terminada"));
                     call.on('cancel', () => endCall("Llamada cancelada"));
-                    call.on('reject', () => endCall("Llamada rechazada por destino"));
+                    call.on('reject', () => endCall("Destino ocupado/rechazado"));
                     
                     call.on('error', (err) => { 
                         addLog(`ERROR DE RED: ${err.message}`);
@@ -262,12 +245,14 @@
                 return (
                     <div className="w-full h-full sm:w-[400px] sm:h-[800px] sm:max-h-[95vh] glass-panel sm:rounded-[40px] sm:border sm:border-quantum-cyan/20 flex flex-col items-center justify-center p-8 text-center relative overflow-hidden shadow-2xl">
                         <div className={`absolute inset-0 ${status === 'ERROR' ? 'bg-red-500/10' : 'bg-quantum-cyan/5'} blur-3xl rounded-full`}></div>
+                        
                         <i className={`ph ${status === 'ERROR' ? 'ph-warning text-red-500' : 'ph-fingerprint text-quantum-cyan animate-pulse'} text-7xl mb-8`}></i>
+                        
                         <h2 className="font-display text-3xl font-bold text-white mb-2">{status === 'ERROR' ? 'FALLO DE SISTEMA' : 'SISTEMA CERRADO'}</h2>
                         
                         <div className="text-sm text-gray-400 font-mono mb-12 px-4 leading-relaxed">
                             {status === 'ERROR' ? (
-                                <div className="text-red-400 font-bold border border-red-500/30 p-4 rounded bg-red-900/20">
+                                <div className="text-red-400 font-bold border border-red-500/30 p-4 rounded bg-red-900/20 text-left text-xs break-words">
                                     {logs[logs.length-1]}
                                 </div>
                             ) : 'Autenticación requerida para establecer enlace satelital en vivo.'}
@@ -289,7 +274,7 @@
                             </div>
                             <div className="flex flex-col">
                                 <span className="font-display font-bold text-sm tracking-widest text-quantum-cyan uppercase leading-tight">Uplink Invictus</span>
-                                <span className="font-mono text-[9px] text-green-400 tracking-widest font-bold">{status === 'BOOT' ? 'SEARCHING...' : 'LIVE NETWORK ACTIVE'}</span>
+                                <span className="font-mono text-[9px] text-green-400 tracking-widest font-bold">{status === 'BOOT' ? 'CONECTANDO...' : 'SISTEMA ONLINE'}</span>
                             </div>
                         </div>
                     </div>
@@ -306,7 +291,7 @@
                         {(status === 'CALLING' || status === 'ACTIVE') && (
                             <div className="w-full flex flex-col items-center justify-center h-full">
                                 <div className="text-3xl font-mono text-white tracking-widest mb-2 font-bold w-full text-center truncate px-2">{number}</div>
-                                <div className={`text-xs font-bold font-display uppercase tracking-widest ${status === 'ACTIVE' ? 'text-green-400' : 'text-quantum-gold animate-pulse'}`}>{status === 'CALLING' ? 'ESTABLECIENDO...' : 'EN LÍNEA'}</div>
+                                <div className={`text-xs font-bold font-display uppercase tracking-widest ${status === 'ACTIVE' ? 'text-green-400' : 'text-quantum-gold animate-pulse'}`}>{status === 'CALLING' ? 'MARCANDO...' : 'EN LÍNEA'}</div>
                                 <div className="font-mono text-3xl mt-3 text-white font-bold">{formatTime(callDuration)}</div>
                                 <div className="voice-waves mt-6">
                                     {Array.from({length: 7}).map((_, i) => (
@@ -321,11 +306,13 @@
                         <div className={`bg-black/60 rounded-xl p-2 h-20 overflow-hidden font-mono text-[9px] text-green-400 border border-green-500/30 flex flex-col justify-end transition-opacity duration-300 ${status === 'ACTIVE' ? 'opacity-0 h-0 border-none m-0 p-0' : 'opacity-100'}`}>
                             {logs.map((log, i) => <div key={i} className="mb-0.5 opacity-80 truncate">> {log}</div>)}
                         </div>
+                        
                         <div className={`grid grid-cols-3 gap-3 sm:gap-4 max-w-[300px] mx-auto w-full transition-opacity duration-300 ${(status === 'CALLING' || status === 'ACTIVE' || status === 'BOOT') ? 'opacity-20 pointer-events-none' : 'opacity-100'}`}>
                             {['1','2','3','4','5','6','7','8','9','+','0','#'].map(btn => (
                                 <button key={btn} onClick={() => handleDial(btn)} className="dial-btn aspect-square rounded-full flex items-center justify-center text-3xl sm:text-4xl font-display font-light text-white shadow-sm w-full max-h-[80px]">{btn}</button>
                             ))}
                         </div>
+
                         <div className="flex justify-center gap-6 mt-2">
                             {(status === 'CONNECTED' || status === 'DIALING') ? (
                                 <>
