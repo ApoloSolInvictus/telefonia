@@ -7,13 +7,13 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>Quantum Phone | Red Invictus (LIVE)</title>
     
-    <!-- Librerías -->
+    <!-- Librerías de Diseño -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=Rajdhani:wght@300;400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
     
-    <!-- SDK DE TWILIO (MOTOR DE VOZ) -->
-    <script src="https://sdk.twilio.com/js/voice/releases/2.10.1/twilio.min.js"></script>
+    <!-- SDK DE TWILIO (Carga Principal) -->
+    <script src="https://sdk.twilio.com/js/voice/releases/2.10.1/twilio.js"></script>
 
     <!-- React Core -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -48,7 +48,7 @@
     <div id="root" class="w-full h-full bg-cosmos flex items-center justify-center sm:p-4">
         <div class="text-center text-quantum-cyan font-mono animate-pulse flex flex-col items-center justify-center w-full h-full">
             <i class="ph ph-circle-notch animate-spin text-5xl mb-4"></i>
-            <p class="tracking-widest text-sm">INICIALIZANDO MATRIZ CUÁNTICA...</p>
+            <p class="tracking-widest text-sm">SINTETIZANDO CÓDIGO...</p>
         </div>
     </div>
 
@@ -56,7 +56,7 @@
         const { useState, useEffect, useRef } = React;
         
         // ==========================================
-        // URL DEL BACKEND EN HEROKU
+        // URL DEL BACKEND (RAÍZ DEL SERVIDOR)
         // ==========================================
         const BACKEND_URL = "https://qphone-b21b0efd3de7.herokuapp.com";
 
@@ -75,38 +75,56 @@
             const analyserRef = useRef(null);
             const dataArrayRef = useRef(null);
             const animationFrameRef = useRef(null);
-            const sourceRef = useRef(null);
 
             const addLog = (msg) => {
                 console.log(msg);
                 setLogs(prev => [...prev, msg].slice(-4));
             };
 
+            // Inyector de Seguridad de Twilio (Fuerza la carga si fue bloqueada)
+            useEffect(() => {
+                if (typeof window.Twilio === 'undefined') {
+                    console.warn("Twilio SDK no detectado, inyectando de emergencia...");
+                    const script = document.createElement('script');
+                    script.src = "https://sdk.twilio.com/js/voice/releases/2.10.1/twilio.js";
+                    script.async = true;
+                    document.body.appendChild(script);
+                }
+            }, []);
+
             // ==========================================
-            // ENCENDIDO DEL TELÉFONO (Directo y Limpio)
+            // ENCENDIDO DEL TELÉFONO
             // ==========================================
             const handlePowerOn = async () => {
                 setStatus('BOOT');
                 addLog("INICIANDO ENLACE SATELITAL...");
                 
                 try {
-                    // 1. Pedir micrófono
+                    // 1. Verificación de Seguridad Twilio
+                    if (typeof window.Twilio === 'undefined') {
+                        throw new Error("Librería de comunicaciones bloqueada. Apague su bloqueador de anuncios o 'Shields' de su navegador.");
+                    }
+
+                    // 2. Pedir micrófono
                     addLog("SOLICITANDO ACCESO A MICRÓFONO...");
                     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                     
-                    // 2. Traer Token
+                    // 3. Traer Token
                     addLog("OBTENIENDO TOKEN DE SEGURIDAD...");
                     const response = await fetch(`${BACKEND_URL}/api/twilio-token`);
                     
-                    if(!response.ok) throw new Error(`Fallo de Servidor (${response.status})`);
+                    if(!response.ok) {
+                        const errTxt = await response.text();
+                        throw new Error(`Fallo de Servidor (${response.status}): ${errTxt}`);
+                    }
                     
                     const data = await response.json();
                     if(!data.token) throw new Error("Token vacío recibido de Heroku.");
 
-                    addLog("TOKEN RECIBIDO. REGISTRANDO...");
+                    addLog("TOKEN RECIBIDO. REGISTRANDO RED...");
 
-                    // 3. Crear dispositivo Twilio sin validaciones complejas
-                    const device = new Twilio.Device(data.token, {
+                    // 4. Crear dispositivo Twilio usando window.Twilio explícito
+                    const device = new window.Twilio.Device(data.token, {
                         codecPreferences: ['opus', 'pcmu'],
                         fakeLocalDTMF: true,
                         enableRingingState: true
@@ -123,6 +141,7 @@
                     device.on('error', (twilioError) => {
                         console.error(twilioError);
                         addLog(`TWILIO ERR: ${twilioError.message}`);
+                        if(twilioError.code === 31205) addLog("REVISE SU ACCOUNT SID.");
                         setStatus('ERROR');
                     });
 
@@ -130,7 +149,7 @@
 
                 } catch (error) {
                     console.error(error);
-                    addLog("ERROR CRÍTICO: " + error.message);
+                    addLog("ERROR: " + error.message);
                     setStatus('ERROR');
                 }
             };
@@ -182,6 +201,7 @@
                     
                     call.on('error', (err) => { 
                         addLog(`ERROR DE RED: ${err.message}`);
+                        if(err.code === 31002) addLog("Falla de Enrutamiento. Revisa el Webhook en TwiML App.");
                         endCall(); 
                     });
                     
@@ -233,7 +253,7 @@
                     <div className="w-full h-full sm:w-[400px] sm:h-[800px] sm:max-h-[95vh] glass-panel sm:rounded-[40px] sm:border sm:border-quantum-cyan/20 flex flex-col items-center justify-center p-8 text-center relative overflow-hidden shadow-2xl">
                         <div className={`absolute inset-0 ${status === 'ERROR' ? 'bg-red-500/10' : 'bg-quantum-cyan/5'} blur-3xl rounded-full`}></div>
                         <i className={`ph ${status === 'ERROR' ? 'ph-warning text-red-500' : 'ph-fingerprint text-quantum-cyan animate-pulse'} text-7xl mb-8`}></i>
-                        <h2 className="font-display text-3xl font-bold text-white mb-2">{status === 'ERROR' ? 'FALLO DE CONEXIÓN' : 'SISTEMA CERRADO'}</h2>
+                        <h2 className="font-display text-3xl font-bold text-white mb-2">{status === 'ERROR' ? 'FALLO DE SISTEMA' : 'SISTEMA CERRADO'}</h2>
                         
                         <div className="text-sm text-gray-400 font-mono mb-12 px-4 leading-relaxed">
                             {status === 'ERROR' ? (
