@@ -12,8 +12,8 @@
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=Rajdhani:wght@300;400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
     
-    <!-- SDK DE TWILIO (MOTOR DE VOZ) -->
-    <script src="https://sdk.twilio.com/js/voice/releases/2.10.1/twilio.js"></script>
+    <!-- SDK DE TWILIO (MOTOR DE VOZ) - VERSIÓN MINIFICADA -->
+    <script src="https://sdk.twilio.com/js/voice/releases/2.10.1/twilio.min.js"></script>
 
     <!-- React Core -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -97,11 +97,16 @@
 
                     addLog("TOKEN RECIBIDO. REGISTRANDO...");
 
-                    // 3. Conectamos el Motor de Twilio
-                    const device = new Twilio.Device(data.token, {
+                    // 3. Conectamos el Motor de Twilio (Protección Global)
+                    if (typeof window.Twilio === 'undefined') {
+                        throw new Error("El motor de Twilio fue bloqueado. Apaga tu AdBlocker o usa otro navegador.");
+                    }
+
+                    const device = new window.Twilio.Device(data.token, {
                         codecPreferences: ['opus', 'pcmu'],
                         fakeLocalDTMF: true,
-                        enableRingingState: true
+                        enableRingingState: true,
+                        debug: true
                     });
 
                     device.on('registered', () => {
