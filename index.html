@@ -3,365 +3,1239 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#05070f">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>Quantum Phone | Red Invictus (Híbrido)</title>
-    
-    <!-- Librerías de Diseño -->
+    <meta name="description" content="Quantum Phone Invictus: prototipo HTML de telefono asistido por telemetria satelital publica.">
+    <meta name="mobile-web-app-capable" content="yes">
+    <title>Quantum Phone Invictus</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2305070f'/%3E%3Ccircle cx='32' cy='32' r='18' fill='none' stroke='%2300e7ff' stroke-width='4'/%3E%3Ccircle cx='32' cy='32' r='5' fill='%232fffa5'/%3E%3Cpath d='M11 44c12-24 30-34 42-31' fill='none' stroke='%23ffd166' stroke-width='4' stroke-linecap='round'/%3E%3C/svg%3E">
+
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
-    
-    <!-- SDK DE TWILIO -->
+    <script src="https://unpkg.com/satellite.js@5.0.0/dist/satellite.min.js"></script>
     <script src="https://sdk.twilio.com/js/voice/releases/2.11.1/twilio.min.js"></script>
-
-    <!-- React Core -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
 
     <script>
         tailwind.config = {
             theme: {
                 extend: {
-                    fontFamily: { sans: ['Rajdhani', 'sans-serif'], display: ['Orbitron', 'sans-serif'], mono: ['"Share Tech Mono"', 'monospace'] },
-                    colors: { quantum: { bg: '#020510', panel: '#0a1024', cyan: '#00f0ff', gold: '#ffcc00', red: '#ff2a00' } },
-                    animation: { 'pulse-glow': 'pulseGlow 2s ease-in-out infinite' },
-                    keyframes: { pulseGlow: { '0%, 100%': { boxShadow: '0 0 15px rgba(0, 240, 255, 0.2)' }, '50%': { boxShadow: '0 0 30px rgba(0, 240, 255, 0.6)' } } }
+                    fontFamily: {
+                        sans: ["Rajdhani", "system-ui", "sans-serif"],
+                        display: ["Orbitron", "system-ui", "sans-serif"],
+                        mono: ['"Share Tech Mono"', "monospace"]
+                    },
+                    colors: {
+                        quantum: {
+                            void: "#05070f",
+                            panel: "#101522",
+                            cyan: "#00e7ff",
+                            gold: "#ffd166",
+                            green: "#2fffa5",
+                            coral: "#ff5d73",
+                            violet: "#8d7dff"
+                        }
+                    }
                 }
             }
-        }
+        };
     </script>
 
     <style>
-        html, body { background-color: #020510; color: #ffffff; overflow: hidden; margin: 0; padding: 0; width: 100%; height: 100dvh; position: fixed; touch-action: manipulation; }
-        .bg-cosmos { background-image: radial-gradient(circle at 50% 0%, rgba(0, 240, 255, 0.15) 0%, transparent 60%), url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%2300f0ff' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E"); background-color: #020510; }
-        .glass-panel { background: rgba(10, 16, 36, 0.85); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
-        .dial-btn { background: rgba(0, 240, 255, 0.05); border: 1px solid rgba(0, 240, 255, 0.15); transition: all 0.1s ease-in-out; -webkit-tap-highlight-color: transparent; }
-        .dial-btn:active { background: rgba(0, 240, 255, 0.3); transform: scale(0.92); border-color: rgba(0, 240, 255, 0.6); }
-        .voice-waves { display: flex; align-items: center; justify-content: center; gap: 4px; height: 60px; }
-        .v-bar { width: 6px; background: #00f0ff; border-radius: 3px; height: 6px; box-shadow: 0 0 10px #00f0ff; transition: height 0.05s ease; }
-        /* Smooth Fade */
-        .fade-enter { animation: fadeIn 0.5s ease-out forwards; }
-        @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+        :root {
+            color-scheme: dark;
+            --void: #05070f;
+            --panel: rgba(16, 21, 34, 0.88);
+            --line: rgba(255, 255, 255, 0.12);
+            --cyan: #00e7ff;
+            --gold: #ffd166;
+            --green: #2fffa5;
+            --coral: #ff5d73;
+            --violet: #8d7dff;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            width: 100%;
+            min-height: 100%;
+            margin: 0;
+            background:
+                radial-gradient(circle at 17% 18%, rgba(0, 231, 255, 0.14), transparent 28%),
+                radial-gradient(circle at 84% 12%, rgba(255, 209, 102, 0.10), transparent 24%),
+                radial-gradient(circle at 74% 82%, rgba(255, 93, 115, 0.10), transparent 28%),
+                linear-gradient(145deg, #05070f 0%, #0d101a 48%, #05070f 100%);
+            color: white;
+            font-family: "Rajdhani", system-ui, sans-serif;
+            overflow-x: hidden;
+        }
+
+        body::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            background-image:
+                linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+            background-size: 38px 38px;
+            mask-image: radial-gradient(circle at center, black, transparent 78%);
+        }
+
+        button {
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .app-shell {
+            width: 100%;
+            min-height: 100dvh;
+            display: grid;
+            grid-template-columns: minmax(320px, 440px) minmax(300px, 520px);
+            align-items: center;
+            justify-content: center;
+            gap: 22px;
+            padding: 22px;
+        }
+
+        .phone-frame {
+            min-width: 0;
+            min-height: min(880px, calc(100dvh - 44px));
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            border-radius: 34px;
+            background:
+                linear-gradient(150deg, rgba(255, 255, 255, 0.08), transparent 18%),
+                rgba(5, 7, 15, 0.90);
+            box-shadow: 0 28px 70px rgba(0, 0, 0, 0.45), inset 0 0 0 8px rgba(255, 255, 255, 0.03);
+            padding: 12px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .phone-screen {
+            width: 100%;
+            min-width: 0;
+            min-height: calc(min(880px, calc(100dvh - 44px)) - 24px);
+            border-radius: 24px;
+            overflow: hidden;
+            background: rgba(7, 10, 18, 0.96);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .notch {
+            width: 112px;
+            height: 24px;
+            border-radius: 0 0 18px 18px;
+            background: #05070f;
+            position: absolute;
+            top: 12px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 4;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-top: 0;
+        }
+
+        .panel {
+            min-width: 0;
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 8px;
+        }
+
+        .soft-panel {
+            min-width: 0;
+            background: rgba(255, 255, 255, 0.055);
+            border: 1px solid rgba(255, 255, 255, 0.10);
+            border-radius: 8px;
+        }
+
+        .signal-bar {
+            width: 5px;
+            border-radius: 5px;
+            background: rgba(255, 255, 255, 0.22);
+        }
+
+        .signal-bar.active {
+            background: var(--green);
+            box-shadow: 0 0 10px rgba(47, 255, 165, 0.55);
+        }
+
+        .key-button {
+            aspect-ratio: 1;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            color: white;
+            transition: transform 120ms ease, background 120ms ease, border-color 120ms ease;
+        }
+
+        .key-button:active {
+            transform: scale(0.92);
+            background: rgba(0, 231, 255, 0.22);
+            border-color: rgba(0, 231, 255, 0.55);
+        }
+
+        .icon-button {
+            width: 54px;
+            height: 54px;
+            border-radius: 999px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            background: rgba(255, 255, 255, 0.07);
+            transition: transform 120ms ease, background 120ms ease;
+        }
+
+        .icon-button:active {
+            transform: scale(0.94);
+        }
+
+        .call-button {
+            background: linear-gradient(135deg, #18d87f, #2fffa5);
+            color: #021006;
+            box-shadow: 0 0 28px rgba(47, 255, 165, 0.34);
+        }
+
+        .end-button {
+            background: linear-gradient(135deg, #ff3158, #ff7a5c);
+            color: white;
+            box-shadow: 0 0 26px rgba(255, 93, 115, 0.34);
+        }
+
+        .scan-line {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(180deg, transparent, rgba(0, 231, 255, 0.18), transparent);
+            height: 34%;
+            animation: scan 3.8s linear infinite;
+            pointer-events: none;
+        }
+
+        @keyframes scan {
+            0% { transform: translateY(-120%); }
+            100% { transform: translateY(320%); }
+        }
+
+        .pulse-dot {
+            position: relative;
+        }
+
+        .pulse-dot::after {
+            content: "";
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: currentColor;
+            position: absolute;
+            right: -10px;
+            top: 50%;
+            transform: translateY(-50%);
+            box-shadow: 0 0 14px currentColor;
+        }
+
+        .wave {
+            width: 6px;
+            border-radius: 4px;
+            min-height: 5px;
+            background: var(--cyan);
+            box-shadow: 0 0 12px rgba(0, 231, 255, 0.55);
+            transition: height 80ms ease;
+        }
+
+        .terminal {
+            scrollbar-width: none;
+        }
+
+        .terminal::-webkit-scrollbar {
+            display: none;
+        }
+
+        .constellation-button[aria-pressed="true"] {
+            border-color: rgba(0, 231, 255, 0.55);
+            color: var(--cyan);
+            background: rgba(0, 231, 255, 0.10);
+        }
+
+        .sat-row {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .meter {
+            height: 8px;
+            border-radius: 999px;
+            overflow: hidden;
+            background: rgba(255, 255, 255, 0.10);
+        }
+
+        .meter > span {
+            display: block;
+            height: 100%;
+            border-radius: inherit;
+            background: linear-gradient(90deg, var(--coral), var(--gold), var(--green));
+        }
+
+        @media (max-width: 900px) {
+            .app-shell {
+                grid-template-columns: minmax(0, 1fr);
+                padding: 0;
+                gap: 0;
+                overflow: hidden;
+            }
+
+            .phone-frame {
+                width: 100%;
+                max-width: 100vw;
+                min-height: 100dvh;
+                border-radius: 0;
+                border: 0;
+                padding: 0;
+                box-shadow: none;
+            }
+
+            .phone-screen {
+                max-width: 100vw;
+                min-height: 100dvh;
+                border-radius: 0;
+                border: 0;
+            }
+
+            .notch {
+                display: none;
+            }
+
+            .command-deck {
+                display: none;
+            }
+        }
+
+        @media (max-width: 390px) {
+            .phone-screen > .p-4 {
+                padding-left: 12px;
+                padding-right: 12px;
+            }
+
+            .compact-hide {
+                display: none;
+            }
+
+            .icon-button {
+                width: 50px;
+                height: 50px;
+            }
+        }
     </style>
 </head>
 <body>
-
-    <div id="root" class="w-full h-full bg-cosmos flex items-center justify-center sm:p-4">
-        <!-- Cargador Inicial -->
-        <div class="text-center text-quantum-cyan font-mono animate-pulse flex flex-col items-center justify-center w-full h-full">
-            <i class="ph ph-circle-notch animate-spin text-5xl mb-4"></i>
-            <p class="tracking-widest text-sm">ENSAMBLANDO MATRIZ CUÁNTICA...</p>
+    <div id="root">
+        <div class="min-h-screen grid place-items-center text-quantum-cyan font-mono">
+            <div class="text-center">
+                <i class="ph ph-circle-notch text-5xl animate-spin"></i>
+                <p class="mt-4 tracking-[0.24em] text-xs">CARGANDO QUANTUM PHONE</p>
+            </div>
         </div>
     </div>
 
     <script type="text/babel">
-        const { useState, useEffect, useRef } = React;
-        
-        // BACKEND HEROKU
-        const BACKEND_URL = "https://qphone-b21b0efd3de7.herokuapp.com";
+        const { useCallback, useEffect, useMemo, useRef, useState } = React;
 
-        const QuantumPhone = () => {
-            // Estados: STANDBY, BOOT, READY, CALLING, ACTIVE
-            const [status, setStatus] = useState('STANDBY'); 
-            const [mode, setMode] = useState('NONE'); // 'LIVE' o 'DEMO'
-            
-            const [number, setNumber] = useState('');
-            const [logs, setLogs] = useState(["SISTEMA LISTO.", "ESPERANDO INICIACIÓN MANUAL."]);
-            const [callDuration, setCallDuration] = useState(0);
+        const BACKEND_URL = "https://qphone-b21b0efd3de7.herokuapp.com";
+        const DEFAULT_LOCATION = { lat: 9.9281, lon: -84.0907, alt: 1.1, label: "Costa Rica fallback" };
+        const MAX_SATS_PER_GROUP = 36;
+
+        const CONSTELLATIONS = [
+            { id: "gnss", label: "GNSS", accent: "#00e7ff", description: "GPS, Galileo, GLONASS, BeiDou" },
+            { id: "iridium-NEXT", label: "Iridium", accent: "#ffd166", description: "orbita baja de comunicacion" },
+            { id: "globalstar", label: "Globalstar", accent: "#2fffa5", description: "voz y datos satelitales" },
+            { id: "amateur", label: "Amateur", accent: "#ff5d73", description: "radioaficionados abiertos" },
+            { id: "weather", label: "NOAA", accent: "#8d7dff", description: "meteorologia y seguimiento" },
+            { id: "starlink", label: "Starlink", accent: "#ffffff", description: "constelacion de baja orbita" }
+        ];
+
+        const FALLBACK_SATS = [
+            ["GPS BIIR-2", "GNSS", 58, 81, 20220],
+            ["GALILEO 27", "GNSS", 47, 144, 23222],
+            ["IRIDIUM 173", "Iridium", 39, 215, 780],
+            ["GLOBALSTAR M094", "Globalstar", 32, 288, 1414],
+            ["AO-91", "Amateur", 21, 21, 802],
+            ["NOAA 19", "NOAA", 17, 334, 854]
+        ];
+
+        function clamp(value, min = 0, max = 100) {
+            return Math.max(min, Math.min(max, value));
+        }
+
+        function pad(value) {
+            return String(value).padStart(2, "0");
+        }
+
+        function formatDuration(seconds) {
+            return `${pad(Math.floor(seconds / 60))}:${pad(seconds % 60)}`;
+        }
+
+        function getDialToneFrequency(key) {
+            const tones = {
+                "1": 697, "2": 697, "3": 697,
+                "4": 770, "5": 770, "6": 770,
+                "7": 852, "8": 852, "9": 852,
+                "+": 941, "0": 941, "#": 941
+            };
+            return tones[key] || 880;
+        }
+
+        function withTimeout(promise, ms) {
+            let timer;
+            return Promise.race([
+                promise,
+                new Promise((_, reject) => {
+                    timer = setTimeout(() => reject(new Error("Tiempo agotado")), ms);
+                })
+            ]).finally(() => clearTimeout(timer));
+        }
+
+        function requestPosition() {
+            if (!navigator.geolocation) {
+                return Promise.resolve(DEFAULT_LOCATION);
+            }
+
+            return new Promise((resolve) => {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => resolve({
+                        lat: position.coords.latitude,
+                        lon: position.coords.longitude,
+                        alt: (position.coords.altitude || 0) / 1000,
+                        label: "GPS local"
+                    }),
+                    () => resolve(DEFAULT_LOCATION),
+                    { enableHighAccuracy: true, timeout: 6500, maximumAge: 300000 }
+                );
+            });
+        }
+
+        function parseTleCatalog(text, group) {
+            const rows = text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+            const sats = [];
+
+            for (let index = 0; index < rows.length - 2 && sats.length < MAX_SATS_PER_GROUP; index += 3) {
+                const name = rows[index];
+                const line1 = rows[index + 1];
+                const line2 = rows[index + 2];
+
+                if (line1?.startsWith("1 ") && line2?.startsWith("2 ")) {
+                    sats.push({ name, line1, line2, group });
+                } else {
+                    index -= 2;
+                }
+            }
+
+            return sats;
+        }
+
+        function fallbackSatellites(seed = Date.now()) {
+            return FALLBACK_SATS.map(([name, group, elevation, azimuth, range], index) => {
+                const drift = Math.sin(seed / 48000 + index) * 8;
+                const adjustedElevation = clamp(elevation + drift, 4, 88);
+                return {
+                    id: `${group}-${name}`,
+                    name,
+                    group,
+                    elevation: adjustedElevation,
+                    azimuth: (azimuth + seed / 9000 + index * 7) % 360,
+                    range,
+                    lat: DEFAULT_LOCATION.lat + Math.sin(seed / 60000 + index) * 18,
+                    lon: DEFAULT_LOCATION.lon + Math.cos(seed / 63000 + index) * 42,
+                    score: clamp(adjustedElevation * 1.15),
+                    source: "simulado"
+                };
+            }).sort((a, b) => b.score - a.score);
+        }
+
+        function projectSatellite(record, observer, now) {
+            if (!window.satellite) {
+                throw new Error("satellite.js no disponible");
+            }
+
+            const satrec = window.satellite.twoline2satrec(record.line1, record.line2);
+            const positionAndVelocity = window.satellite.propagate(satrec, now);
+
+            if (!positionAndVelocity.position) {
+                return null;
+            }
+
+            const gmst = window.satellite.gstime(now);
+            const geodetic = window.satellite.eciToGeodetic(positionAndVelocity.position, gmst);
+            const positionEcf = window.satellite.eciToEcf(positionAndVelocity.position, gmst);
+            const observerGd = {
+                longitude: window.satellite.degreesToRadians(observer.lon),
+                latitude: window.satellite.degreesToRadians(observer.lat),
+                height: observer.alt || 0
+            };
+            const lookAngles = window.satellite.ecfToLookAngles(observerGd, positionEcf);
+            const elevation = window.satellite.radiansToDegrees(lookAngles.elevation);
+            const azimuth = window.satellite.radiansToDegrees(lookAngles.azimuth);
+            const lat = window.satellite.radiansToDegrees(geodetic.latitude);
+            const lon = window.satellite.radiansToDegrees(geodetic.longitude);
+            const height = geodetic.height;
+
+            if (!Number.isFinite(elevation) || elevation < -8) {
+                return null;
+            }
+
+            return {
+                id: `${record.group}-${record.name}`,
+                name: record.name.replace(/\s+/g, " ").slice(0, 28),
+                group: CONSTELLATIONS.find((item) => item.id === record.group)?.label || record.group,
+                elevation,
+                azimuth: (azimuth + 360) % 360,
+                range: lookAngles.rangeSat,
+                lat,
+                lon,
+                height,
+                score: clamp((elevation + 8) * 1.12),
+                source: "celestrak"
+            };
+        }
+
+        function SignalBars({ quality }) {
+            const active = Math.max(1, Math.ceil((quality / 100) * 5));
+            return (
+                <div className="flex items-end gap-1 h-5" aria-label={`senal ${Math.round(quality)} por ciento`}>
+                    {[1, 2, 3, 4, 5].map((item) => (
+                        <span
+                            key={item}
+                            className={`signal-bar ${item <= active ? "active" : ""}`}
+                            style={{ height: `${6 + item * 3}px` }}
+                        />
+                    ))}
+                </div>
+            );
+        }
+
+        function PhoneCanvas({ satellites, selected, quality, status }) {
+            const canvasRef = useRef(null);
+            const frameRef = useRef(0);
+
+            useEffect(() => {
+                const canvas = canvasRef.current;
+                const ctx = canvas?.getContext("2d");
+                if (!canvas || !ctx) return;
+
+                const draw = () => {
+                    const rect = canvas.getBoundingClientRect();
+                    const ratio = Math.min(window.devicePixelRatio || 1, 2);
+                    canvas.width = Math.max(1, Math.floor(rect.width * ratio));
+                    canvas.height = Math.max(1, Math.floor(rect.height * ratio));
+                    ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+
+                    const width = rect.width;
+                    const height = rect.height;
+                    const centerX = width / 2;
+                    const centerY = height / 2 + 8;
+                    const radius = Math.min(width, height) * 0.28;
+                    const time = Date.now() / 1000;
+
+                    ctx.clearRect(0, 0, width, height);
+
+                    const sky = ctx.createRadialGradient(centerX, centerY, radius * 0.2, centerX, centerY, radius * 2.5);
+                    sky.addColorStop(0, "rgba(0, 231, 255, 0.16)");
+                    sky.addColorStop(0.52, "rgba(141, 125, 255, 0.08)");
+                    sky.addColorStop(1, "rgba(255, 255, 255, 0.00)");
+                    ctx.fillStyle = sky;
+                    ctx.fillRect(0, 0, width, height);
+
+                    ctx.save();
+                    ctx.translate(centerX, centerY);
+
+                    for (let ring = 1; ring <= 4; ring += 1) {
+                        ctx.beginPath();
+                        ctx.arc(0, 0, radius * (0.72 + ring * 0.28), 0, Math.PI * 2);
+                        ctx.strokeStyle = `rgba(255,255,255,${0.08 - ring * 0.01})`;
+                        ctx.lineWidth = 1;
+                        ctx.stroke();
+                    }
+
+                    const sweep = (time * 0.9) % (Math.PI * 2);
+                    ctx.beginPath();
+                    ctx.moveTo(0, 0);
+                    ctx.arc(0, 0, radius * 1.86, sweep - 0.12, sweep + 0.12);
+                    ctx.closePath();
+                    ctx.fillStyle = "rgba(0, 231, 255, 0.12)";
+                    ctx.fill();
+
+                    ctx.beginPath();
+                    ctx.arc(0, 0, radius, 0, Math.PI * 2);
+                    ctx.fillStyle = "#101827";
+                    ctx.fill();
+                    ctx.strokeStyle = "rgba(0,231,255,0.38)";
+                    ctx.lineWidth = 1.4;
+                    ctx.stroke();
+
+                    ctx.beginPath();
+                    ctx.arc(-radius * 0.18, -radius * 0.14, radius * 0.34, 0, Math.PI * 2);
+                    ctx.fillStyle = "rgba(47,255,165,0.18)";
+                    ctx.fill();
+
+                    ctx.beginPath();
+                    ctx.arc(radius * 0.25, radius * 0.12, radius * 0.44, 0, Math.PI * 2);
+                    ctx.fillStyle = "rgba(255,209,102,0.12)";
+                    ctx.fill();
+
+                    satellites.slice(0, 20).forEach((sat, index) => {
+                        const az = ((sat.azimuth || 0) * Math.PI) / 180 - Math.PI / 2;
+                        const orbit = radius * (1.18 + (index % 4) * 0.18);
+                        const wobble = Math.sin(time * 0.55 + index) * 6;
+                        const x = Math.cos(az) * (orbit + wobble);
+                        const y = Math.sin(az) * (orbit + wobble);
+                        const isSelected = selected?.id === sat.id;
+                        const dotSize = isSelected ? 5.5 : 3.4;
+
+                        ctx.beginPath();
+                        ctx.moveTo(Math.cos(az) * radius, Math.sin(az) * radius);
+                        ctx.lineTo(x, y);
+                        ctx.strokeStyle = isSelected ? "rgba(47,255,165,0.68)" : "rgba(255,255,255,0.11)";
+                        ctx.lineWidth = isSelected ? 1.4 : 0.8;
+                        ctx.stroke();
+
+                        ctx.beginPath();
+                        ctx.arc(x, y, dotSize, 0, Math.PI * 2);
+                        ctx.fillStyle = isSelected ? "#2fffa5" : (sat.score > 55 ? "#00e7ff" : "#ffd166");
+                        ctx.shadowColor = ctx.fillStyle;
+                        ctx.shadowBlur = isSelected ? 18 : 8;
+                        ctx.fill();
+                        ctx.shadowBlur = 0;
+                    });
+
+                    ctx.restore();
+
+                    ctx.fillStyle = "rgba(255,255,255,0.74)";
+                    ctx.font = "12px Share Tech Mono, monospace";
+                    ctx.fillText(`${satellites.length} VISIBLES`, 16, 24);
+
+                    ctx.fillStyle = quality > 66 ? "#2fffa5" : quality > 36 ? "#ffd166" : "#ff5d73";
+                    ctx.font = "bold 20px Share Tech Mono, monospace";
+                    ctx.fillText(`${Math.round(quality)}%`, 16, 48);
+
+                    if (status === "CALLING" || status === "ACTIVE") {
+                        ctx.fillStyle = "rgba(47,255,165,0.82)";
+                        ctx.font = "12px Share Tech Mono, monospace";
+                        ctx.fillText("ENLACE DE VOZ", width - 124, 24);
+                    }
+
+                    frameRef.current = requestAnimationFrame(draw);
+                };
+
+                draw();
+                return () => cancelAnimationFrame(frameRef.current);
+            }, [satellites, selected, quality, status]);
+
+            return <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" aria-label="Radar orbital Quantum Phone" />;
+        }
+
+        function QuantumPhone() {
+            const [status, setStatus] = useState("STANDBY");
+            const [linkMode, setLinkMode] = useState("DEMO");
+            const [number, setNumber] = useState("");
+            const [logs, setLogs] = useState([
+                "Sistema listo.",
+                "Telemetria publica en espera."
+            ]);
+            const [location, setLocation] = useState(DEFAULT_LOCATION);
+            const [catalog, setCatalog] = useState([]);
+            const [selectedGroups, setSelectedGroups] = useState(CONSTELLATIONS.slice(0, 4).map((item) => item.id));
+            const [scanState, setScanState] = useState("IDLE");
+            const [dataSource, setDataSource] = useState("offline");
+            const [duration, setDuration] = useState(0);
             const [audioLevel, setAudioLevel] = useState(0);
-            
             const [twilioDevice, setTwilioDevice] = useState(null);
-            const [activeConnection, setActiveConnection] = useState(null);
+            const [activeCall, setActiveCall] = useState(null);
 
             const timerRef = useRef(null);
             const audioContextRef = useRef(null);
             const analyserRef = useRef(null);
-            const dataArrayRef = useRef(null);
-            const animationFrameRef = useRef(null);
-            const sourceRef = useRef(null);
+            const audioDataRef = useRef(null);
+            const visualizerRef = useRef(null);
+            const mediaStreamRef = useRef(null);
 
-            const addLog = (msg) => {
-                console.log(msg);
-                setLogs(prev => [...prev, msg].slice(-4));
-            };
+            const addLog = useCallback((message) => {
+                setLogs((previous) => [...previous, message].slice(-7));
+            }, []);
 
-            // ==========================================
-            // ENCENDIDO HÍBRIDO (El Fénix)
-            // Nunca falla. Si Twilio se cae, usa Modo Demo.
-            // ==========================================
-            const handlePowerOn = async () => {
-                setStatus('BOOT');
-                addLog("INICIANDO PROTOCOLO HÍBRIDO...");
-                
-                let micStream = null;
+            const visibleSatellites = useMemo(() => {
+                if (!catalog.length) {
+                    return fallbackSatellites();
+                }
+
+                const now = new Date();
+                const projected = catalog
+                    .filter((record) => selectedGroups.includes(record.group))
+                    .map((record) => {
+                        try {
+                            return projectSatellite(record, location, now);
+                        } catch (error) {
+                            return null;
+                        }
+                    })
+                    .filter(Boolean)
+                    .sort((a, b) => b.score - a.score);
+
+                return projected.length ? projected.slice(0, 42) : fallbackSatellites();
+            }, [catalog, location, selectedGroups]);
+
+            const bestSatellite = visibleSatellites[0];
+            const signalQuality = clamp((bestSatellite?.score || 32) + Math.min(26, visibleSatellites.length * 1.3));
+            const routeName = bestSatellite ? `${bestSatellite.group} / ${bestSatellite.name}` : "Buscando cielo";
+
+            const scanCatalog = useCallback(async () => {
+                setScanState("SCANNING");
+                addLog("Escaneando constelaciones abiertas...");
 
                 try {
-                    // 1. Pedir micrófono (Útil tanto para Live como para Demo)
-                    addLog("SOLICITANDO MICRÓFONO...");
-                    micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                    
-                    // 2. Verificar Twilio
-                    if (typeof window.Twilio === 'undefined') {
-                        throw new Error("Librería bloqueada por el navegador.");
+                    const position = await requestPosition();
+                    setLocation(position);
+                    addLog(`Nodo local: ${position.lat.toFixed(3)}, ${position.lon.toFixed(3)}`);
+
+                    const requests = selectedGroups.map(async (group) => {
+                        const url = `https://celestrak.org/NORAD/elements/gp.php?GROUP=${encodeURIComponent(group)}&FORMAT=TLE`;
+                        const response = await withTimeout(fetch(url, { cache: "no-store" }), 9000);
+                        if (!response.ok) {
+                            throw new Error(`${group} ${response.status}`);
+                        }
+                        return parseTleCatalog(await response.text(), group);
+                    });
+
+                    const results = await Promise.allSettled(requests);
+                    const records = results.flatMap((result) => result.status === "fulfilled" ? result.value : []);
+
+                    if (!records.length) {
+                        throw new Error("Sin respuesta TLE util");
                     }
 
-                    // 3. Buscar Token
-                    addLog("CONTACTANDO A HEROKU...");
-                    const response = await fetch(`${BACKEND_URL}/api/twilio-token`);
-                    
-                    if(!response.ok) throw new Error(`Fallo de Servidor (${response.status})`);
-                    
-                    const data = await response.json();
-                    if(!data.token) throw new Error("Token vacío.");
-
-                    // 4. Instanciar Twilio
-                    const device = new window.Twilio.Device(data.token, {
-                        codecPreferences: ['opus', 'pcmu'],
-                        fakeLocalDTMF: true,
-                        enableRingingState: true
-                    });
-
-                    device.on('registered', () => {
-                        addLog("ENLACE SATELITAL ESTABLECIDO.");
-                        setTwilioDevice(device);
-                        setupAudioVisualizer(micStream);
-                        setMode('LIVE');
-                        setStatus('READY');
-                    });
-
-                    device.on('error', (err) => {
-                        console.warn("Twilio Error, activando fallback:", err);
-                        throw new Error("Fallo en registro de Twilio.");
-                    });
-
-                    device.register();
-
+                    setCatalog(records);
+                    setDataSource("celestrak");
+                    setScanState("READY");
+                    addLog(`${records.length} satelites indexados.`);
+                    addLog("Ruta optima recalculada.");
                 } catch (error) {
-                    // SI CUALQUIER COSA FALLA -> ACTIVAMOS MODO DEMO
-                    console.warn("Pasando a Modo Demo. Causa:", error.message);
-                    addLog(`ALERTA: ${error.message}`);
-                    addLog("ACTIVANDO MODO DEMO DE EMERGENCIA.");
-                    
-                    if (micStream) {
-                        setupAudioVisualizer(micStream);
-                    }
-                    
-                    setMode('DEMO');
-                    setStatus('READY');
+                    setCatalog([]);
+                    setDataSource("simulado");
+                    setScanState("READY");
+                    addLog(`Telemetria fallback: ${error.message}`);
+                    addLog("Modelo orbital simulado activo.");
                 }
-            };
+            }, [addLog, selectedGroups]);
 
-            // Temporizador de Llamada
+            const setupAudioVisualizer = useCallback((stream) => {
+                try {
+                    mediaStreamRef.current = stream;
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    if (!AudioContext) return;
+
+                    if (!audioContextRef.current) {
+                        audioContextRef.current = new AudioContext();
+                    }
+
+                    if (audioContextRef.current.state === "suspended") {
+                        audioContextRef.current.resume();
+                    }
+
+                    analyserRef.current = audioContextRef.current.createAnalyser();
+                    analyserRef.current.fftSize = 256;
+                    const source = audioContextRef.current.createMediaStreamSource(stream);
+                    source.connect(analyserRef.current);
+                    audioDataRef.current = new Uint8Array(analyserRef.current.frequencyBinCount);
+
+                    const tick = () => {
+                        if (!analyserRef.current || !audioDataRef.current) return;
+                        analyserRef.current.getByteFrequencyData(audioDataRef.current);
+                        const total = audioDataRef.current.reduce((sum, value) => sum + value, 0);
+                        setAudioLevel(total / audioDataRef.current.length);
+                        visualizerRef.current = requestAnimationFrame(tick);
+                    };
+
+                    tick();
+                } catch (error) {
+                    addLog("Visualizador sin microfono.");
+                }
+            }, [addLog]);
+
+            const startMicrophone = useCallback(async () => {
+                if (!navigator.mediaDevices?.getUserMedia) return null;
+
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({
+                        audio: {
+                            echoCancellation: true,
+                            noiseSuppression: true,
+                            autoGainControl: true
+                        }
+                    });
+                    setupAudioVisualizer(stream);
+                    return stream;
+                } catch (error) {
+                    addLog("Microfono no concedido.");
+                    return null;
+                }
+            }, [addLog, setupAudioVisualizer]);
+
+            const registerVoiceLink = useCallback(async () => {
+                if (!window.Twilio?.Device) {
+                    throw new Error("SDK de voz no disponible");
+                }
+
+                const response = await withTimeout(fetch(`${BACKEND_URL}/api/twilio-token`, { cache: "no-store" }), 8000);
+                if (!response.ok) {
+                    throw new Error(`Backend ${response.status}`);
+                }
+
+                const payload = await response.json();
+                if (!payload.token) {
+                    throw new Error("Token vacio");
+                }
+
+                const device = new window.Twilio.Device(payload.token, {
+                    codecPreferences: ["opus", "pcmu"],
+                    enableRingingState: true,
+                    fakeLocalDTMF: true
+                });
+
+                await new Promise((resolve, reject) => {
+                    const timeout = setTimeout(() => reject(new Error("Registro de voz agotado")), 8500);
+                    device.on("registered", () => {
+                        clearTimeout(timeout);
+                        resolve();
+                    });
+                    device.on("error", (error) => {
+                        clearTimeout(timeout);
+                        reject(error);
+                    });
+                    device.register();
+                });
+
+                return device;
+            }, []);
+
+            const bootPhone = useCallback(async () => {
+                setStatus("BOOT");
+                addLog("Iniciando Quantum Phone...");
+                await scanCatalog();
+                await startMicrophone();
+
+                try {
+                    const device = await registerVoiceLink();
+                    setTwilioDevice(device);
+                    setLinkMode("LIVE");
+                    addLog("Canal WebVoice registrado.");
+                } catch (error) {
+                    setTwilioDevice(null);
+                    setLinkMode("DEMO");
+                    addLog(`Voz en demo: ${error.message}`);
+                }
+
+                setStatus("READY");
+            }, [addLog, registerVoiceLink, scanCatalog, startMicrophone]);
+
+            const playTone = useCallback((key) => {
+                try {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    const context = new AudioContext();
+                    const oscillator = context.createOscillator();
+                    const gain = context.createGain();
+
+                    oscillator.type = "sine";
+                    oscillator.frequency.value = getDialToneFrequency(key);
+                    gain.gain.setValueAtTime(0.05, context.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.12);
+
+                    oscillator.connect(gain);
+                    gain.connect(context.destination);
+                    oscillator.start();
+                    oscillator.stop(context.currentTime + 0.13);
+                } catch (error) {
+                    // AudioContext can be blocked by device policy.
+                }
+            }, []);
+
+            const dial = useCallback((key) => {
+                setNumber((previous) => {
+                    if (previous.length >= 18) return previous;
+                    if (key === "+" && previous.includes("+")) return previous;
+                    return `${previous}${key}`;
+                });
+                playTone(key);
+            }, [playTone]);
+
+            const endCall = useCallback((message = "Llamada finalizada.") => {
+                if (activeCall) {
+                    try {
+                        activeCall.disconnect();
+                    } catch (error) {
+                        // Twilio can already be closed.
+                    }
+                }
+                setActiveCall(null);
+                setStatus("READY");
+                setNumber("");
+                addLog(message);
+            }, [activeCall, addLog]);
+
+            const startCall = useCallback(async () => {
+                if (!number || status === "CALLING" || status === "ACTIVE") return;
+
+                setStatus("CALLING");
+                addLog(`Ruta: ${routeName}`);
+                addLog(`Marcando ${number}`);
+                await startMicrophone();
+
+                if (linkMode === "LIVE" && twilioDevice) {
+                    try {
+                        const call = await twilioDevice.connect({ params: { To: number } });
+                        setActiveCall(call);
+                        call.on("accept", () => {
+                            setStatus("ACTIVE");
+                            addLog("Voz conectada.");
+                        });
+                        call.on("disconnect", () => endCall("Conexion cerrada."));
+                        call.on("cancel", () => endCall("Marcacion cancelada."));
+                        call.on("error", (error) => {
+                            addLog(`Error de voz: ${error.message}`);
+                            endCall("Fallo de enlace.");
+                        });
+                    } catch (error) {
+                        addLog(`Live fallido: ${error.message}`);
+                        setLinkMode("DEMO");
+                        setTimeout(() => {
+                            setStatus("ACTIVE");
+                            addLog("Demo de voz conectada.");
+                        }, 1100);
+                    }
+                    return;
+                }
+
+                setTimeout(() => {
+                    setStatus("ACTIVE");
+                    addLog("Demo de voz conectada.");
+                }, 1100);
+            }, [addLog, endCall, linkMode, number, routeName, startMicrophone, status, twilioDevice]);
+
+            const openNativeDialer = useCallback(() => {
+                if (!number) return;
+                addLog("Abriendo marcador nativo.");
+                window.location.href = `tel:${number}`;
+            }, [addLog, number]);
+
+            const copySignalPacket = useCallback(async () => {
+                const packet = [
+                    "QUANTUM PHONE SOS",
+                    `Numero: ${number || "sin marcar"}`,
+                    `Posicion: ${location.lat.toFixed(5)}, ${location.lon.toFixed(5)}`,
+                    `Ruta: ${routeName}`,
+                    `Calidad: ${Math.round(signalQuality)}%`,
+                    `Fuente: ${dataSource}`
+                ].join("\n");
+
+                try {
+                    await navigator.clipboard.writeText(packet);
+                    addLog("Paquete SOS copiado.");
+                } catch (error) {
+                    addLog("Clipboard no disponible.");
+                }
+            }, [addLog, dataSource, location, number, routeName, signalQuality]);
+
+            const toggleGroup = useCallback((id) => {
+                setSelectedGroups((previous) => {
+                    if (previous.includes(id) && previous.length === 1) return previous;
+                    if (previous.includes(id)) return previous.filter((item) => item !== id);
+                    return [...previous, id];
+                });
+                setCatalog([]);
+                setDataSource("offline");
+                setScanState("IDLE");
+            }, []);
+
             useEffect(() => {
-                if (status === 'ACTIVE') {
-                    timerRef.current = setInterval(() => setCallDuration(p => p + 1), 1000);
+                if (status === "ACTIVE") {
+                    timerRef.current = setInterval(() => setDuration((value) => value + 1), 1000);
                 } else {
                     clearInterval(timerRef.current);
-                    setCallDuration(0);
+                    setDuration(0);
                 }
+
                 return () => clearInterval(timerRef.current);
             }, [status]);
 
-            const formatTime = (s) => `${Math.floor(s / 60).toString().padStart(2, '0')}:${(s % 60).toString().padStart(2, '0')}`;
+            useEffect(() => {
+                return () => {
+                    clearInterval(timerRef.current);
+                    cancelAnimationFrame(visualizerRef.current);
+                    mediaStreamRef.current?.getTracks()?.forEach((track) => track.stop());
+                };
+            }, []);
 
-            const handleDial = (digit) => {
-                if (number.length < 16) setNumber(prev => prev + digit);
-                try {
-                    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-                    const osc = ctx.createOscillator();
-                    osc.type = 'sine'; osc.frequency.setValueAtTime(800 + (parseInt(digit) || 0) * 50, ctx.currentTime);
-                    osc.connect(ctx.destination); osc.start(); osc.stop(ctx.currentTime + 0.1);
-                } catch(e) {} 
-            };
+            const waves = Array.from({ length: 9 }, (_, index) => {
+                const centerDrop = 1 - Math.abs(index - 4) / 5;
+                return Math.max(5, (audioLevel / 255) * 58 * centerDrop);
+            });
 
-            // ==========================================
-            // REALIZAR LA LLAMADA (LIVE O DEMO)
-            // ==========================================
-            const startCall = async () => {
-                if (!number) return;
-                setStatus('CALLING');
-                addLog(`MARCANDO A: ${number}`);
+            const statusCopy = {
+                STANDBY: "SISTEMA CERRADO",
+                BOOT: "SINCRONIZANDO",
+                READY: linkMode === "LIVE" ? "WEBVOICE LIVE" : "DEMO SEGURO",
+                CALLING: "MARCANDO",
+                ACTIVE: "EN LINEA"
+            }[status];
 
-                if (mode === 'LIVE' && twilioDevice) {
-                    // LLAMADA REAL
-                    try {
-                        const call = await twilioDevice.connect({ params: { To: number } });
-                        setActiveConnection(call);
-                        
-                        call.on('accept', () => {
-                            setStatus('ACTIVE');
-                            addLog("CONEXIÓN ESTABLECIDA.");
-                        });
-                        
-                        call.on('disconnect', () => endCall("Llamada terminada"));
-                        call.on('cancel', () => endCall("Llamada cancelada"));
-                        call.on('error', (err) => { 
-                            addLog(`ERROR DE RED: ${err.message}`);
-                            endCall(); 
-                        });
-                    } catch (err) {
-                        addLog(`FALLO DE ENLACE: ${err.message}`);
-                        setStatus('READY');
-                    }
-                } else {
-                    // LLAMADA SIMULADA (DEMO)
-                    setTimeout(() => {
-                        setStatus('ACTIVE');
-                        addLog("SIMULACIÓN: CONEXIÓN ESTABLECIDA.");
-                        // Si no teníamos micrófono por falta de permisos, tratamos de pedirlo de nuevo aquí
-                        if (!analyserRef.current) {
-                            navigator.mediaDevices.getUserMedia({ audio: true })
-                                .then(stream => setupAudioVisualizer(stream))
-                                .catch(e => console.log("Micrófono ignorado en demo."));
-                        }
-                    }, 2500);
-                }
-            };
-
-            // Visualizador de Ondas
-            const setupAudioVisualizer = (stream) => {
-                try {
-                    if (!audioContextRef.current) {
-                        audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
-                    }
-                    if (audioContextRef.current.state === 'suspended') {
-                        audioContextRef.current.resume();
-                    }
-                    analyserRef.current = audioContextRef.current.createAnalyser();
-                    sourceRef.current = audioContextRef.current.createMediaStreamSource(stream);
-                    sourceRef.current.connect(analyserRef.current);
-                    analyserRef.current.fftSize = 256;
-                    updateAudioVisualizer();
-                } catch(e) {}
-            };
-
-            const updateAudioVisualizer = () => {
-                if (!analyserRef.current) return;
-                if (!dataArrayRef.current) dataArrayRef.current = new Uint8Array(analyserRef.current.frequencyBinCount);
-                analyserRef.current.getByteFrequencyData(dataArrayRef.current);
-                
-                let sum = 0;
-                for(let i=0; i<dataArrayRef.current.length; i++) sum += dataArrayRef.current[i];
-                setAudioLevel(sum / dataArrayRef.current.length);
-                
-                animationFrameRef.current = requestAnimationFrame(updateAudioVisualizer);
-            };
-
-            const endCall = (msg = "LLAMADA FINALIZADA.") => {
-                if (activeConnection) { 
-                    try { activeConnection.disconnect(); } catch(e) {}
-                    setActiveConnection(null); 
-                }
-                setStatus('READY');
-                setNumber('');
-                addLog(msg);
-            };
-
-            // ==========================================
-            // VISTAS UI
-            // ==========================================
-            
-            // PANTALLA INICIAL
-            if (status === 'STANDBY') {
-                return (
-                    <div className="w-full h-full sm:w-[400px] sm:h-[800px] sm:max-h-[95vh] glass-panel sm:rounded-[40px] sm:border sm:border-quantum-cyan/20 flex flex-col items-center justify-center p-8 text-center relative overflow-hidden shadow-2xl fade-enter">
-                        <div className="absolute inset-0 bg-quantum-cyan/5 blur-3xl rounded-full"></div>
-                        <i className="ph ph-fingerprint text-quantum-cyan animate-pulse text-7xl mb-8"></i>
-                        <h2 className="font-display text-3xl font-bold text-white mb-2">SISTEMA CERRADO</h2>
-                        <p className="text-sm text-gray-400 font-mono mb-12 px-4 leading-relaxed">
-                            Autenticación requerida para establecer enlace satelital.
-                        </p>
-                        
-                        <button onClick={handlePowerOn} className="w-full py-5 text-black bg-quantum-cyan hover:bg-cyan-400 shadow-[0_0_30px_rgba(0,240,255,0.4)] font-display font-bold text-lg rounded-2xl transition transform active:scale-95 uppercase tracking-widest relative z-10">
-                            Establecer Enlace
-                        </button>
-                    </div>
-                );
-            }
-
-            // PANTALLA DEL TELÉFONO (TECLADO / LLAMADA)
             return (
-                <div className="w-full h-full sm:w-[400px] sm:h-[800px] sm:max-h-[95vh] glass-panel sm:rounded-[40px] sm:border sm:border-quantum-cyan/20 flex flex-col relative overflow-hidden shadow-2xl fade-enter">
-                    
-                    {/* TOP BAR / HEADER */}
-                    <div className="flex items-center justify-between px-6 pt-10 sm:pt-6 pb-4 border-b border-quantum-cyan/20 bg-black/20 shrink-0">
-                        <div className="flex items-center gap-3">
-                            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${status === 'BOOT' ? 'bg-quantum-cyan/20 text-quantum-cyan animate-pulse' : (mode === 'LIVE' ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400')}`}>
-                                <i className="ph-fill ph-satellite-dish text-xl"></i>
-                            </div>
-                            <div className="flex flex-col">
-                                <span className="font-display font-bold text-sm tracking-widest text-white uppercase leading-tight">Uplink Invictus</span>
-                                <span className={`font-mono text-[9px] tracking-widest font-bold ${mode === 'LIVE' ? 'text-green-400' : 'text-yellow-400'}`}>
-                                    {status === 'BOOT' ? 'CONECTANDO...' : (mode === 'LIVE' ? 'RED GLOBAL LIVE' : 'MODO SIMULACIÓN')}
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* PANTALLA CENTRAL (NÚMERO) */}
-                    <div className="flex-1 flex flex-col items-center justify-center px-4 min-h-0">
-                        {status === 'BOOT' && <i className="ph ph-circle-notch text-5xl text-quantum-cyan animate-spin"></i>}
-                        
-                        {(status === 'READY' || status === 'DIALING') && (
-                            <div className="w-full text-center flex flex-col items-center justify-center h-full">
-                                <div className="text-4xl sm:text-5xl font-mono text-white tracking-widest h-14 flex items-center justify-center font-bold w-full truncate px-2">
-                                    {number || <span className="text-gray-600 font-light text-2xl">INGRESE NÚMERO</span>}
+                <main className="app-shell">
+                    <section className="phone-frame" aria-label="Quantum Phone">
+                        <div className="notch"></div>
+                        <div className="phone-screen">
+                            <header className="px-5 pt-7 pb-3 flex items-center justify-between border-b border-white/10">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-full grid place-items-center bg-white/10 border border-white/10">
+                                        <i className="ph-fill ph-satellite-dish text-quantum-cyan text-xl"></i>
+                                    </div>
+                                    <div>
+                                        <h1 className="font-display text-sm tracking-[0.18em] font-bold">QUANTUM PHONE</h1>
+                                        <p className={`font-mono text-[10px] tracking-[0.18em] ${status === "ACTIVE" ? "text-quantum-green pulse-dot" : "text-white/58"}`}>
+                                            {statusCopy}
+                                        </p>
+                                    </div>
                                 </div>
-                            </div>
-                        )}
-                        
-                        {(status === 'CALLING' || status === 'ACTIVE') && (
-                            <div className="w-full flex flex-col items-center justify-center h-full">
-                                <div className="text-3xl font-mono text-white tracking-widest mb-2 font-bold w-full text-center truncate px-2">{number}</div>
-                                <div className={`text-xs font-bold font-display uppercase tracking-widest ${status === 'ACTIVE' ? 'text-green-400' : 'text-quantum-gold animate-pulse'}`}>{status === 'CALLING' ? 'MARCANDO...' : 'EN LÍNEA'}</div>
-                                <div className="font-mono text-3xl mt-3 text-white font-bold">{formatTime(callDuration)}</div>
-                                
-                                {/* Visualizador de Ondas (Solo se anima si hay micrófono) */}
-                                <div className="voice-waves mt-6">
-                                    {Array.from({length: 7}).map((_, i) => (
-                                        <div key={i} className="v-bar" style={{ height: status === 'ACTIVE' ? `${Math.max(6, (audioLevel / 255) * 60 * (1 - Math.abs(i - 3)/4))}px` : '6px', opacity: status === 'ACTIVE' ? 1 : 0.3 }}></div>
+
+                                <div className="flex items-center gap-3">
+                                    <SignalBars quality={signalQuality} />
+                                    <span className="font-mono text-xs text-white/72 compact-hide">{linkMode}</span>
+                                </div>
+                            </header>
+
+                            <div className="p-4 flex-1 flex flex-col gap-3 min-h-0">
+                                <div className="relative panel overflow-hidden h-[230px] shrink-0">
+                                    <PhoneCanvas
+                                        satellites={visibleSatellites}
+                                        selected={bestSatellite}
+                                        quality={signalQuality}
+                                        status={status}
+                                    />
+                                    <div className="scan-line"></div>
+                                    <div className="absolute left-3 right-3 bottom-3 grid grid-cols-3 gap-2">
+                                        <div className="soft-panel px-2 py-2">
+                                            <p className="text-[9px] font-mono text-white/48 tracking-[0.16em]">RUTA</p>
+                                            <p className="text-xs font-bold truncate">{bestSatellite?.group || "SKY"}</p>
+                                        </div>
+                                        <div className="soft-panel px-2 py-2">
+                                            <p className="text-[9px] font-mono text-white/48 tracking-[0.16em]">ELEV</p>
+                                            <p className="text-xs font-bold">{Math.round(bestSatellite?.elevation || 0)} deg</p>
+                                        </div>
+                                        <div className="soft-panel px-2 py-2">
+                                            <p className="text-[9px] font-mono text-white/48 tracking-[0.16em]">FUENTE</p>
+                                            <p className="text-xs font-bold uppercase">{dataSource}</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-3">
+                                    <button
+                                        type="button"
+                                        onClick={status === "STANDBY" ? bootPhone : scanCatalog}
+                                        disabled={status === "BOOT" || status === "CALLING" || status === "ACTIVE"}
+                                        className="panel h-12 flex items-center justify-center gap-2 font-display text-xs tracking-[0.14em] text-quantum-cyan disabled:opacity-50"
+                                        title="Escanear cielo"
+                                    >
+                                        <i className={`ph ${status === "BOOT" || scanState === "SCANNING" ? "ph-circle-notch animate-spin" : "ph-crosshair"} text-lg`}></i>
+                                        {status === "STANDBY" ? "INICIAR" : "ESCANEAR"}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={copySignalPacket}
+                                        className="panel h-12 flex items-center justify-center gap-2 font-display text-xs tracking-[0.14em] text-quantum-gold"
+                                        title="Copiar paquete SOS"
+                                    >
+                                        <i className="ph ph-shield-warning text-lg"></i>
+                                        SOS PACKET
+                                    </button>
+                                </div>
+
+                                <div className="panel px-4 py-3">
+                                    <div className="flex items-center justify-between gap-3">
+                                        <div className="min-w-0">
+                                            <p className="font-mono text-[10px] text-white/45 tracking-[0.16em]">MARCADOR</p>
+                                            <p className="font-mono text-3xl h-10 truncate tracking-[0.06em]">
+                                                {number || <span className="text-white/25 text-2xl">+000000000</span>}
+                                            </p>
+                                        </div>
+                                        <div className="text-right shrink-0">
+                                            <p className="font-mono text-[10px] text-white/45 tracking-[0.16em]">TIEMPO</p>
+                                            <p className="font-mono text-2xl text-quantum-green">{formatDuration(duration)}</p>
+                                        </div>
+                                    </div>
+
+                                    {(status === "CALLING" || status === "ACTIVE") && (
+                                        <div className="mt-3 h-16 flex items-end justify-center gap-2">
+                                            {waves.map((height, index) => (
+                                                <span
+                                                    key={index}
+                                                    className="wave"
+                                                    style={{ height: status === "ACTIVE" ? `${height}px` : "7px", opacity: status === "ACTIVE" ? 1 : 0.35 }}
+                                                />
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="grid grid-cols-3 gap-3 max-w-[310px] mx-auto w-full">
+                                    {["1", "2", "3", "4", "5", "6", "7", "8", "9", "+", "0", "#"].map((key) => (
+                                        <button
+                                            type="button"
+                                            key={key}
+                                            onClick={() => dial(key)}
+                                            disabled={status === "STANDBY" || status === "BOOT" || status === "CALLING" || status === "ACTIVE"}
+                                            className="key-button grid place-items-center text-3xl font-display disabled:opacity-30"
+                                        >
+                                            {key}
+                                        </button>
                                     ))}
                                 </div>
+
+                                <div className="flex justify-center items-center gap-5 pt-1 pb-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => setNumber((value) => value.slice(0, -1))}
+                                        disabled={!number || status === "STANDBY" || status === "BOOT" || status === "CALLING" || status === "ACTIVE"}
+                                        className="icon-button disabled:opacity-30"
+                                        title="Borrar"
+                                    >
+                                        <i className="ph ph-backspace text-2xl"></i>
+                                    </button>
+
+                                    {status === "CALLING" || status === "ACTIVE" ? (
+                                        <button type="button" onClick={() => endCall()} className="icon-button end-button w-20 h-20" title="Colgar">
+                                            <i className="ph-fill ph-phone-disconnect text-4xl"></i>
+                                        </button>
+                                    ) : (
+                                        <button
+                                            type="button"
+                                            onClick={startCall}
+                                            disabled={!number || status === "STANDBY" || status === "BOOT"}
+                                            className="icon-button call-button w-20 h-20 disabled:opacity-35"
+                                            title="Llamar"
+                                        >
+                                            <i className="ph-fill ph-phone text-4xl"></i>
+                                        </button>
+                                    )}
+
+                                    <button
+                                        type="button"
+                                        onClick={openNativeDialer}
+                                        disabled={!number || status === "STANDBY" || status === "BOOT" || status === "CALLING" || status === "ACTIVE"}
+                                        className="icon-button disabled:opacity-30"
+                                        title="Marcador nativo"
+                                    >
+                                        <i className="ph ph-device-mobile-speaker text-2xl"></i>
+                                    </button>
+                                </div>
                             </div>
-                        )}
-                    </div>
+                        </div>
+                    </section>
 
-                    {/* ZONA INFERIOR (TECLADO) */}
-                    <div className="w-full px-6 pb-8 sm:pb-6 mt-auto shrink-0 flex flex-col gap-4">
-                        
-                        {/* Terminal de Logs Pequeña */}
-                        <div className={`bg-black/60 rounded-xl p-2 h-16 overflow-hidden font-mono text-[9px] ${mode === 'LIVE' ? 'text-green-400 border-green-500/30' : 'text-yellow-400 border-yellow-500/30'} border flex flex-col justify-end transition-opacity duration-300 ${status === 'ACTIVE' ? 'opacity-0 h-0 border-none m-0 p-0' : 'opacity-100'}`}>
-                            {logs.map((log, i) => <div key={i} className="mb-0.5 opacity-80 truncate">> {log}</div>)}
-                        </div>
-                        
-                        {/* Botones Numéricos */}
-                        <div className={`grid grid-cols-3 gap-3 sm:gap-4 max-w-[300px] mx-auto w-full transition-opacity duration-300 ${(status === 'CALLING' || status === 'ACTIVE' || status === 'BOOT') ? 'opacity-20 pointer-events-none' : 'opacity-100'}`}>
-                            {['1','2','3','4','5','6','7','8','9','+','0','#'].map(btn => (
-                                <button key={btn} onClick={() => handleDial(btn)} className="dial-btn aspect-square rounded-full flex items-center justify-center text-3xl sm:text-4xl font-display font-light text-white shadow-sm w-full max-h-[80px]">{btn}</button>
-                            ))}
+                    <aside className="command-deck space-y-3">
+                        <div className="panel p-4">
+                            <div className="flex items-start justify-between gap-4">
+                                <div>
+                                    <p className="font-mono text-xs text-white/48 tracking-[0.18em]">INVICTUS ROUTER</p>
+                                    <h2 className="font-display text-2xl font-bold mt-1">Satcom Assist</h2>
+                                </div>
+                                <div className="text-right">
+                                    <p className="font-mono text-xs text-white/48 tracking-[0.18em]">CALIDAD</p>
+                                    <p className="font-mono text-3xl text-quantum-green">{Math.round(signalQuality)}%</p>
+                                </div>
+                            </div>
+                            <p className="mt-3 text-sm text-white/62 leading-relaxed">
+                                HTML no transmite directo a satelites; este prototipo usa telemetria orbital publica para elegir la mejor ruta visual y voz web cuando el backend esta activo.
+                            </p>
+                            <div className="meter mt-4">
+                                <span style={{ width: `${signalQuality}%` }}></span>
+                            </div>
                         </div>
 
-                        {/* Botones de Acción */}
-                        <div className="flex justify-center gap-6 mt-2">
-                            {(status === 'READY' || status === 'DIALING') ? (
-                                <>
-                                    <button onClick={startCall} className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-green-500 hover:bg-green-400 text-white flex items-center justify-center transition transform active:scale-90 shadow-[0_0_20px_rgba(34,197,94,0.4)]"><i className="ph-fill ph-phone text-3xl sm:text-4xl"></i></button>
-                                    <button onClick={() => setNumber(p=>p.slice(0,-1))} className="w-16 h-16 sm:w-20 sm:h-20 rounded-full dial-btn flex items-center justify-center text-gray-400 hover:text-white transition active:scale-90"><i className="ph-fill ph-backspace text-2xl sm:text-3xl"></i></button>
-                                </>
-                            ) : status !== 'BOOT' && (
-                                <button onClick={endCall} className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-red-600 hover:bg-red-500 text-white flex items-center justify-center transition transform active:scale-90 animate-pulse-glow shadow-[0_0_20px_rgba(220,38,38,0.5)]"><i className="ph-fill ph-phone-disconnect text-3xl sm:text-4xl"></i></button>
-                            )}
+                        <div className="panel p-4">
+                            <div className="flex items-center justify-between gap-3 mb-3">
+                                <h3 className="font-display text-sm tracking-[0.18em]">CONSTELACIONES</h3>
+                                <button
+                                    type="button"
+                                    onClick={scanCatalog}
+                                    className="icon-button w-10 h-10"
+                                    title="Actualizar telemetria"
+                                >
+                                    <i className={`ph ${scanState === "SCANNING" ? "ph-circle-notch animate-spin" : "ph-arrows-clockwise"} text-lg`}></i>
+                                </button>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2">
+                                {CONSTELLATIONS.map((item) => (
+                                    <button
+                                        key={item.id}
+                                        type="button"
+                                        aria-pressed={selectedGroups.includes(item.id)}
+                                        onClick={() => toggleGroup(item.id)}
+                                        className="constellation-button soft-panel px-3 py-2 text-left"
+                                    >
+                                        <span className="block font-display text-xs tracking-[0.12em]" style={{ color: selectedGroups.includes(item.id) ? item.accent : undefined }}>
+                                            {item.label}
+                                        </span>
+                                        <span className="block text-[11px] text-white/44 truncate">{item.description}</span>
+                                    </button>
+                                ))}
+                            </div>
                         </div>
-                    </div>
-                </div>
+
+                        <div className="panel p-4">
+                            <div className="flex items-center justify-between mb-3">
+                                <h3 className="font-display text-sm tracking-[0.18em]">SATELITES TOP</h3>
+                                <span className="font-mono text-xs text-white/50">{visibleSatellites.length} visibles</span>
+                            </div>
+                            <div className="space-y-2 max-h-[260px] overflow-auto pr-1 terminal">
+                                {visibleSatellites.slice(0, 7).map((sat) => (
+                                    <div key={sat.id} className="sat-row soft-panel px-3 py-2">
+                                        <div className="min-w-0">
+                                            <p className="font-bold text-sm truncate">{sat.name}</p>
+                                            <p className="font-mono text-[10px] text-white/44 truncate">
+                                                {sat.group} / AZ {Math.round(sat.azimuth)} / {Math.round(sat.range || 0)} km
+                                            </p>
+                                        </div>
+                                        <span className="font-mono text-sm text-quantum-cyan">{Math.round(sat.elevation)} deg</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="panel p-4">
+                            <h3 className="font-display text-sm tracking-[0.18em] mb-3">TERMINAL</h3>
+                            <div className="terminal h-[122px] overflow-auto font-mono text-xs text-white/62 space-y-1">
+                                {logs.map((entry, index) => (
+                                    <p key={`${entry}-${index}`} className="truncate">
+                                        <span className="text-quantum-cyan">&gt;</span> {entry}
+                                    </p>
+                                ))}
+                            </div>
+                        </div>
+                    </aside>
+                </main>
             );
-        };
+        }
 
-        const rootElement = document.getElementById('root');
-        const root = ReactDOM.createRoot(rootElement);
-        root.render(<QuantumPhone />);
+        ReactDOM.createRoot(document.getElementById("root")).render(<QuantumPhone />);
     </script>
 </body>
 </html>
