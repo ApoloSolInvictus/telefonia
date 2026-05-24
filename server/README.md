@@ -18,7 +18,7 @@ Backend minimo para que `https://iphone.infiniti-ia.com` funcione como softphone
 https://TU-BACKEND.com/voice
 ```
 
-4. Despliega este folder en Heroku, Render, Railway, Fly.io o cualquier Node host con HTTPS.
+4. Despliega este folder en Render, Railway, Fly.io o cualquier Node host con HTTPS.
 5. En el Quantum Phone, guarda la URL base del backend, por ejemplo:
 
 ```text

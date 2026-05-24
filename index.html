@@ -971,7 +971,7 @@
         (() => {
             "use strict";
 
-            const DEFAULT_BACKEND_URL = "https://qphone-b21b0efd3de7.herokuapp.com";
+            const DEFAULT_BACKEND_URL = window.QUANTUM_BACKEND_URL || location.origin;
             const DEFAULT_LOCATION = { lat: 9.9281, lon: -84.0907, alt: 1.1, label: "Costa Rica fallback" };
             const MAX_SATS_PER_GROUP = 36;
             const E164_PATTERN = /^\+[1-9]\d{7,14}$/;
