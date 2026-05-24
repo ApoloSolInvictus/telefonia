@@ -4,58 +4,36 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="theme-color" content="#05070f">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="description" content="Quantum Phone Invictus: prototipo HTML de telefono asistido por telemetria satelital publica.">
-    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="description" content="Quantum Phone Invictus: softphone web con asistencia satelital publica y Twilio Voice cuando el backend esta activo.">
     <title>Quantum Phone Invictus</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2305070f'/%3E%3Ccircle cx='32' cy='32' r='18' fill='none' stroke='%2300e7ff' stroke-width='4'/%3E%3Ccircle cx='32' cy='32' r='5' fill='%232fffa5'/%3E%3Cpath d='M11 44c12-24 30-34 42-31' fill='none' stroke='%23ffd166' stroke-width='4' stroke-linecap='round'/%3E%3C/svg%3E">
-
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/@phosphor-icons/web"></script>
-    <script src="https://unpkg.com/satellite.js@5.0.0/dist/satellite.min.js"></script>
-    <script src="https://sdk.twilio.com/js/voice/releases/2.11.1/twilio.min.js"></script>
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
-
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    fontFamily: {
-                        sans: ["Rajdhani", "system-ui", "sans-serif"],
-                        display: ["Orbitron", "system-ui", "sans-serif"],
-                        mono: ['"Share Tech Mono"', "monospace"]
-                    },
-                    colors: {
-                        quantum: {
-                            void: "#05070f",
-                            panel: "#101522",
-                            cyan: "#00e7ff",
-                            gold: "#ffd166",
-                            green: "#2fffa5",
-                            coral: "#ff5d73",
-                            violet: "#8d7dff"
-                        }
-                    }
-                }
-            }
-        };
-    </script>
+    <script defer src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script defer src="https://unpkg.com/satellite.js@5.0.0/dist/satellite.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/@twilio/voice-sdk@2.11.1/dist/twilio.min.js"></script>
 
     <style>
         :root {
             color-scheme: dark;
             --void: #05070f;
+            --ink: #ffffff;
+            --muted: rgba(255, 255, 255, 0.58);
+            --dim: rgba(255, 255, 255, 0.32);
             --panel: rgba(16, 21, 34, 0.88);
+            --panel-soft: rgba(255, 255, 255, 0.055);
             --line: rgba(255, 255, 255, 0.12);
+            --line-strong: rgba(255, 255, 255, 0.20);
             --cyan: #00e7ff;
             --gold: #ffd166;
             --green: #2fffa5;
             --coral: #ff5d73;
             --violet: #8d7dff;
+            --shadow: rgba(0, 0, 0, 0.46);
         }
 
         * {
@@ -72,7 +50,7 @@
                 radial-gradient(circle at 84% 12%, rgba(255, 209, 102, 0.10), transparent 24%),
                 radial-gradient(circle at 74% 82%, rgba(255, 93, 115, 0.10), transparent 28%),
                 linear-gradient(145deg, #05070f 0%, #0d101a 48%, #05070f 100%);
-            color: white;
+            color: var(--ink);
             font-family: "Rajdhani", system-ui, sans-serif;
             overflow-x: hidden;
         }
@@ -89,30 +67,43 @@
             mask-image: radial-gradient(circle at center, black, transparent 78%);
         }
 
+        button,
+        input {
+            font: inherit;
+        }
+
         button {
+            border: 0;
+            cursor: pointer;
             -webkit-tap-highlight-color: transparent;
+        }
+
+        button:disabled {
+            cursor: not-allowed;
         }
 
         .app-shell {
             width: 100%;
             min-height: 100dvh;
             display: grid;
-            grid-template-columns: minmax(320px, 440px) minmax(300px, 520px);
+            grid-template-columns: minmax(320px, 440px) minmax(300px, 540px);
             align-items: center;
             justify-content: center;
             gap: 22px;
             padding: 22px;
+            position: relative;
+            z-index: 1;
         }
 
         .phone-frame {
             min-width: 0;
-            min-height: min(880px, calc(100dvh - 44px));
+            min-height: min(900px, calc(100dvh - 44px));
             border: 1px solid rgba(255, 255, 255, 0.18);
             border-radius: 34px;
             background:
                 linear-gradient(150deg, rgba(255, 255, 255, 0.08), transparent 18%),
                 rgba(5, 7, 15, 0.90);
-            box-shadow: 0 28px 70px rgba(0, 0, 0, 0.45), inset 0 0 0 8px rgba(255, 255, 255, 0.03);
+            box-shadow: 0 28px 70px var(--shadow), inset 0 0 0 8px rgba(255, 255, 255, 0.03);
             padding: 12px;
             position: relative;
             overflow: hidden;
@@ -121,7 +112,7 @@
         .phone-screen {
             width: 100%;
             min-width: 0;
-            min-height: calc(min(880px, calc(100dvh - 44px)) - 24px);
+            min-height: calc(min(900px, calc(100dvh - 44px)) - 24px);
             border-radius: 24px;
             overflow: hidden;
             background: rgba(7, 10, 18, 0.96);
@@ -144,79 +135,136 @@
             border-top: 0;
         }
 
-        .panel {
-            min-width: 0;
-            background: var(--panel);
-            border: 1px solid var(--line);
-            border-radius: 8px;
+        .phone-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 14px;
+            padding: 28px 20px 12px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.10);
         }
 
-        .soft-panel {
+        .brand-block {
+            display: flex;
+            align-items: center;
+            gap: 12px;
             min-width: 0;
-            background: rgba(255, 255, 255, 0.055);
-            border: 1px solid rgba(255, 255, 255, 0.10);
-            border-radius: 8px;
         }
 
-        .signal-bar {
+        .brand-orb {
+            width: 40px;
+            height: 40px;
+            border-radius: 999px;
+            display: grid;
+            place-items: center;
+            flex: 0 0 auto;
+            background: rgba(255, 255, 255, 0.09);
+            border: 1px solid rgba(255, 255, 255, 0.13);
+            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+        }
+
+        .brand-title {
+            margin: 0;
+            font-family: "Orbitron", system-ui, sans-serif;
+            font-size: 14px;
+            line-height: 1.1;
+            letter-spacing: 0.18em;
+            font-weight: 800;
+            white-space: nowrap;
+        }
+
+        .status-line {
+            margin: 4px 0 0;
+            font-family: "Share Tech Mono", monospace;
+            font-size: 10px;
+            line-height: 1;
+            letter-spacing: 0.18em;
+            color: var(--muted);
+            text-transform: uppercase;
+            min-height: 12px;
+        }
+
+        .status-line.live {
+            color: var(--green);
+            text-shadow: 0 0 12px rgba(47, 255, 165, 0.7);
+        }
+
+        .header-signal {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex: 0 0 auto;
+        }
+
+        .signal-bars {
+            display: flex;
+            align-items: flex-end;
+            gap: 4px;
+            height: 22px;
+        }
+
+        .signal-bars span {
             width: 5px;
             border-radius: 5px;
-            background: rgba(255, 255, 255, 0.22);
+            background: rgba(255, 255, 255, 0.20);
         }
 
-        .signal-bar.active {
+        .signal-bars span.active {
             background: var(--green);
             box-shadow: 0 0 10px rgba(47, 255, 165, 0.55);
         }
 
-        .key-button {
-            aspect-ratio: 1;
-            border-radius: 999px;
-            background: rgba(255, 255, 255, 0.06);
-            border: 1px solid rgba(255, 255, 255, 0.14);
-            color: white;
-            transition: transform 120ms ease, background 120ms ease, border-color 120ms ease;
+        .mode-pill {
+            min-width: 44px;
+            font-family: "Share Tech Mono", monospace;
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.72);
+            text-align: right;
         }
 
-        .key-button:active {
-            transform: scale(0.92);
-            background: rgba(0, 231, 255, 0.22);
-            border-color: rgba(0, 231, 255, 0.55);
+        .phone-body {
+            flex: 1;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            padding: 14px 16px 18px;
         }
 
-        .icon-button {
-            width: 54px;
-            height: 54px;
-            border-radius: 999px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            border: 1px solid rgba(255, 255, 255, 0.14);
-            background: rgba(255, 255, 255, 0.07);
-            transition: transform 120ms ease, background 120ms ease;
+        .panel,
+        .soft-panel {
+            min-width: 0;
+            border-radius: 8px;
+            border: 1px solid var(--line);
         }
 
-        .icon-button:active {
-            transform: scale(0.94);
+        .panel {
+            background: var(--panel);
         }
 
-        .call-button {
-            background: linear-gradient(135deg, #18d87f, #2fffa5);
-            color: #021006;
-            box-shadow: 0 0 28px rgba(47, 255, 165, 0.34);
+        .soft-panel {
+            background: var(--panel-soft);
         }
 
-        .end-button {
-            background: linear-gradient(135deg, #ff3158, #ff7a5c);
-            color: white;
-            box-shadow: 0 0 26px rgba(255, 93, 115, 0.34);
+        .radar-panel {
+            height: 230px;
+            position: relative;
+            overflow: hidden;
+            flex: 0 0 auto;
+        }
+
+        #radarCanvas {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
         }
 
         .scan-line {
             position: absolute;
             inset: 0;
-            background: linear-gradient(180deg, transparent, rgba(0, 231, 255, 0.18), transparent);
             height: 34%;
+            background: linear-gradient(180deg, transparent, rgba(0, 231, 255, 0.18), transparent);
             animation: scan 3.8s linear infinite;
             pointer-events: none;
         }
@@ -226,72 +274,469 @@
             100% { transform: translateY(320%); }
         }
 
-        .pulse-dot {
-            position: relative;
-        }
-
-        .pulse-dot::after {
-            content: "";
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: currentColor;
+        .radar-metrics {
             position: absolute;
-            right: -10px;
-            top: 50%;
-            transform: translateY(-50%);
-            box-shadow: 0 0 14px currentColor;
+            left: 12px;
+            right: 12px;
+            bottom: 12px;
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 8px;
         }
 
-        .wave {
+        .metric {
+            padding: 9px 10px;
+        }
+
+        .label {
+            margin: 0;
+            font-family: "Share Tech Mono", monospace;
+            font-size: 10px;
+            line-height: 1;
+            color: rgba(255, 255, 255, 0.52);
+            letter-spacing: 0.16em;
+            text-transform: uppercase;
+        }
+
+        .value {
+            margin: 6px 0 0;
+            font-size: 13px;
+            line-height: 1.1;
+            font-weight: 800;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .action-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+            gap: 12px;
+        }
+
+        .command-button {
+            min-height: 48px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            color: var(--cyan);
+            font-family: "Orbitron", system-ui, sans-serif;
+            font-size: 12px;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            transition: transform 120ms ease, border-color 120ms ease, background 120ms ease, opacity 120ms ease;
+        }
+
+        .command-button.gold {
+            color: var(--gold);
+        }
+
+        .command-button:active,
+        .key-button:active,
+        .icon-button:active {
+            transform: scale(0.96);
+        }
+
+        .command-button:disabled,
+        .key-button:disabled,
+        .icon-button:disabled {
+            opacity: 0.34;
+        }
+
+        .dial-display {
+            padding: 14px 16px;
+        }
+
+        .dial-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 14px;
+        }
+
+        .number-block {
+            min-width: 0;
+        }
+
+        .number-text {
+            margin: 8px 0 0;
+            height: 40px;
+            font-family: "Share Tech Mono", monospace;
+            font-size: 31px;
+            line-height: 1.15;
+            color: white;
+            letter-spacing: 0.04em;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .number-text.empty {
+            color: rgba(255, 255, 255, 0.25);
+        }
+
+        .timer-block {
+            flex: 0 0 auto;
+            text-align: right;
+        }
+
+        .timer-text {
+            margin: 8px 0 0;
+            font-family: "Share Tech Mono", monospace;
+            font-size: 27px;
+            line-height: 1.1;
+            color: var(--green);
+        }
+
+        .voice-waves {
+            height: 0;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            gap: 8px;
+            overflow: hidden;
+            transition: height 180ms ease, margin-top 180ms ease;
+        }
+
+        .voice-waves.active {
+            height: 64px;
+            margin-top: 12px;
+        }
+
+        .voice-waves span {
             width: 6px;
-            border-radius: 4px;
             min-height: 5px;
+            border-radius: 4px;
             background: var(--cyan);
             box-shadow: 0 0 12px rgba(0, 231, 255, 0.55);
             transition: height 80ms ease;
         }
 
-        .terminal {
-            scrollbar-width: none;
-        }
-
-        .terminal::-webkit-scrollbar {
-            display: none;
-        }
-
-        .constellation-button[aria-pressed="true"] {
-            border-color: rgba(0, 231, 255, 0.55);
-            color: var(--cyan);
-            background: rgba(0, 231, 255, 0.10);
-        }
-
-        .sat-row {
+        .keypad {
+            width: min(100%, 310px);
             display: grid;
-            grid-template-columns: 1fr auto;
-            gap: 10px;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 12px;
+            margin: 0 auto;
+        }
+
+        .key-button {
+            aspect-ratio: 1;
+            border-radius: 999px;
+            display: grid;
+            place-items: center;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            color: rgba(255, 255, 255, 0.68);
+            font-family: "Orbitron", system-ui, sans-serif;
+            font-size: 34px;
+            transition: transform 120ms ease, background 120ms ease, border-color 120ms ease, color 120ms ease;
+        }
+
+        .key-button:not(:disabled):hover {
+            color: white;
+            border-color: rgba(0, 231, 255, 0.42);
+        }
+
+        .call-controls {
+            display: flex;
             align-items: center;
+            justify-content: center;
+            gap: 20px;
+            padding: 0 0 2px;
+        }
+
+        .icon-button {
+            width: 54px;
+            height: 54px;
+            border-radius: 999px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            background: rgba(255, 255, 255, 0.07);
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            transition: transform 120ms ease, background 120ms ease, opacity 120ms ease;
+        }
+
+        .icon-button i,
+        .command-button i {
+            font-size: 22px;
+        }
+
+        .call-button,
+        .end-button {
+            width: 80px;
+            height: 80px;
+        }
+
+        .call-button {
+            color: #021006;
+            background: linear-gradient(135deg, #18d87f, #2fffa5);
+            box-shadow: 0 0 28px rgba(47, 255, 165, 0.34);
+        }
+
+        .end-button {
+            color: white;
+            background: linear-gradient(135deg, #ff3158, #ff7a5c);
+            box-shadow: 0 0 26px rgba(255, 93, 115, 0.34);
+        }
+
+        .call-button i,
+        .end-button i {
+            font-size: 38px;
+        }
+
+        .command-deck {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            min-width: 0;
+        }
+
+        .deck-card {
+            padding: 16px;
+        }
+
+        .deck-topline {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 16px;
+        }
+
+        .deck-eyebrow {
+            margin: 0;
+            font-family: "Share Tech Mono", monospace;
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.48);
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+        }
+
+        .deck-title {
+            margin: 7px 0 0;
+            font-family: "Orbitron", system-ui, sans-serif;
+            font-size: 26px;
+            line-height: 1;
+        }
+
+        .quality-large {
+            margin: 6px 0 0;
+            font-family: "Share Tech Mono", monospace;
+            font-size: 34px;
+            line-height: 1;
+            color: var(--green);
+            text-align: right;
+        }
+
+        .deck-copy {
+            margin: 14px 0 0;
+            color: rgba(255, 255, 255, 0.64);
+            font-size: 15px;
+            line-height: 1.55;
         }
 
         .meter {
             height: 8px;
             border-radius: 999px;
             overflow: hidden;
+            margin-top: 16px;
             background: rgba(255, 255, 255, 0.10);
         }
 
-        .meter > span {
+        .meter span {
             display: block;
             height: 100%;
+            width: 0;
             border-radius: inherit;
             background: linear-gradient(90deg, var(--coral), var(--gold), var(--green));
+            transition: width 180ms ease;
+        }
+
+        .deck-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .deck-heading {
+            margin: 0;
+            font-family: "Orbitron", system-ui, sans-serif;
+            font-size: 14px;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+        }
+
+        .mini-button {
+            width: 40px;
+            height: 40px;
+            border-radius: 999px;
+            display: inline-grid;
+            place-items: center;
+            color: white;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.14);
+        }
+
+        .mini-button i {
+            font-size: 20px;
+        }
+
+        .constellations {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px;
+        }
+
+        .constellation-button {
+            padding: 10px 12px;
+            text-align: left;
+            color: white;
+            background: var(--panel-soft);
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            min-width: 0;
+        }
+
+        .constellation-button[aria-pressed="true"] {
+            border-color: rgba(0, 231, 255, 0.55);
+            background: rgba(0, 231, 255, 0.10);
+        }
+
+        .constellation-name {
+            display: block;
+            font-family: "Orbitron", system-ui, sans-serif;
+            font-size: 12px;
+            letter-spacing: 0.12em;
+            line-height: 1.2;
+        }
+
+        .constellation-desc {
+            display: block;
+            margin-top: 4px;
+            color: rgba(255, 255, 255, 0.44);
+            font-size: 11px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .sat-list {
+            max-height: 244px;
+            overflow: auto;
+            padding-right: 1px;
+            scrollbar-width: none;
+        }
+
+        .sat-list::-webkit-scrollbar,
+        .terminal::-webkit-scrollbar {
+            display: none;
+        }
+
+        .sat-row {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            margin-top: 8px;
+        }
+
+        .sat-name {
+            margin: 0;
+            font-size: 14px;
+            line-height: 1.1;
+            font-weight: 800;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .sat-meta {
+            margin: 6px 0 0;
+            font-family: "Share Tech Mono", monospace;
+            font-size: 10px;
+            color: rgba(255, 255, 255, 0.46);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .sat-elevation {
+            font-family: "Share Tech Mono", monospace;
+            font-size: 15px;
+            color: var(--cyan);
+        }
+
+        .terminal {
+            height: 128px;
+            overflow: auto;
+            scrollbar-width: none;
+            font-family: "Share Tech Mono", monospace;
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.68);
+        }
+
+        .terminal p {
+            margin: 0 0 7px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .terminal span {
+            color: var(--cyan);
+        }
+
+        .backend-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 10px;
+            align-items: center;
+            margin-top: 12px;
+        }
+
+        .backend-url {
+            min-width: 0;
+            height: 40px;
+            padding: 0 12px;
+            color: white;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            outline: 0;
+        }
+
+        .backend-url:focus {
+            border-color: rgba(0, 231, 255, 0.6);
+        }
+
+        .backend-save {
+            height: 40px;
+            padding: 0 12px;
+            border-radius: 8px;
+            color: #021006;
+            background: var(--green);
+            font-weight: 800;
+            letter-spacing: 0.04em;
+        }
+
+        .hidden {
+            display: none !important;
         }
 
         @media (max-width: 900px) {
             .app-shell {
                 grid-template-columns: minmax(0, 1fr);
-                padding: 0;
                 gap: 0;
+                padding: 0;
                 overflow: hidden;
             }
 
@@ -299,8 +744,8 @@
                 width: 100%;
                 max-width: 100vw;
                 min-height: 100dvh;
-                border-radius: 0;
                 border: 0;
+                border-radius: 0;
                 padding: 0;
                 box-shadow: none;
             }
@@ -308,470 +753,515 @@
             .phone-screen {
                 max-width: 100vw;
                 min-height: 100dvh;
-                border-radius: 0;
                 border: 0;
+                border-radius: 0;
             }
 
-            .notch {
-                display: none;
-            }
-
+            .notch,
             .command-deck {
                 display: none;
             }
         }
 
-        @media (max-width: 390px) {
-            .phone-screen > .p-4 {
+        @media (max-width: 430px) {
+            .phone-header {
+                padding-left: 16px;
+                padding-right: 16px;
+            }
+
+            .brand-title {
+                font-size: 13px;
+                letter-spacing: 0.14em;
+            }
+
+            .mode-pill {
+                display: none;
+            }
+
+            .phone-body {
                 padding-left: 12px;
                 padding-right: 12px;
             }
 
-            .compact-hide {
-                display: none;
+            .radar-panel {
+                height: 230px;
+            }
+
+            .key-button {
+                font-size: 30px;
             }
 
             .icon-button {
                 width: 50px;
                 height: 50px;
             }
+
+            .call-button,
+            .end-button {
+                width: 76px;
+                height: 76px;
+            }
         }
     </style>
 </head>
 <body>
-    <div id="root">
-        <div class="min-h-screen grid place-items-center text-quantum-cyan font-mono">
-            <div class="text-center">
-                <i class="ph ph-circle-notch text-5xl animate-spin"></i>
-                <p class="mt-4 tracking-[0.24em] text-xs">CARGANDO QUANTUM PHONE</p>
-            </div>
-        </div>
-    </div>
+    <main class="app-shell">
+        <section class="phone-frame" aria-label="Quantum Phone">
+            <div class="notch" aria-hidden="true"></div>
+            <div class="phone-screen">
+                <header class="phone-header">
+                    <div class="brand-block">
+                        <div class="brand-orb">
+                            <i class="ph-fill ph-satellite-dish" aria-hidden="true"></i>
+                        </div>
+                        <div>
+                            <h1 class="brand-title">QUANTUM PHONE</h1>
+                            <p id="statusLine" class="status-line">SISTEMA CERRADO</p>
+                        </div>
+                    </div>
 
-    <script type="text/babel">
-        const { useCallback, useEffect, useMemo, useRef, useState } = React;
+                    <div class="header-signal">
+                        <div id="signalBars" class="signal-bars" aria-label="senal">
+                            <span style="height: 8px"></span>
+                            <span style="height: 11px"></span>
+                            <span style="height: 14px"></span>
+                            <span style="height: 17px"></span>
+                            <span style="height: 20px"></span>
+                        </div>
+                        <span id="modePill" class="mode-pill">DEMO</span>
+                    </div>
+                </header>
 
-        const BACKEND_URL = "https://qphone-b21b0efd3de7.herokuapp.com";
-        const DEFAULT_LOCATION = { lat: 9.9281, lon: -84.0907, alt: 1.1, label: "Costa Rica fallback" };
-        const MAX_SATS_PER_GROUP = 36;
+                <div class="phone-body">
+                    <section class="panel radar-panel" aria-label="Radar orbital">
+                        <canvas id="radarCanvas"></canvas>
+                        <div class="scan-line" aria-hidden="true"></div>
+                        <div class="radar-metrics">
+                            <div class="soft-panel metric">
+                                <p class="label">Ruta</p>
+                                <p id="routeMetric" class="value">GNSS</p>
+                            </div>
+                            <div class="soft-panel metric">
+                                <p class="label">Elev</p>
+                                <p id="elevationMetric" class="value">0 deg</p>
+                            </div>
+                            <div class="soft-panel metric">
+                                <p class="label">Fuente</p>
+                                <p id="sourceMetric" class="value">Offline</p>
+                            </div>
+                        </div>
+                    </section>
 
-        const CONSTELLATIONS = [
-            { id: "gnss", label: "GNSS", accent: "#00e7ff", description: "GPS, Galileo, GLONASS, BeiDou" },
-            { id: "iridium-NEXT", label: "Iridium", accent: "#ffd166", description: "orbita baja de comunicacion" },
-            { id: "globalstar", label: "Globalstar", accent: "#2fffa5", description: "voz y datos satelitales" },
-            { id: "amateur", label: "Amateur", accent: "#ff5d73", description: "radioaficionados abiertos" },
-            { id: "weather", label: "NOAA", accent: "#8d7dff", description: "meteorologia y seguimiento" },
-            { id: "starlink", label: "Starlink", accent: "#ffffff", description: "constelacion de baja orbita" }
-        ];
+                    <div class="action-grid">
+                        <button id="scanButton" class="command-button" type="button" title="Escanear cielo">
+                            <i class="ph ph-crosshair" aria-hidden="true"></i>
+                            <span id="scanButtonText">Iniciar</span>
+                        </button>
+                        <button id="sosButton" class="command-button gold" type="button" title="Copiar paquete SOS">
+                            <i class="ph ph-shield-warning" aria-hidden="true"></i>
+                            <span>SOS Packet</span>
+                        </button>
+                    </div>
 
-        const FALLBACK_SATS = [
-            ["GPS BIIR-2", "GNSS", 58, 81, 20220],
-            ["GALILEO 27", "GNSS", 47, 144, 23222],
-            ["IRIDIUM 173", "Iridium", 39, 215, 780],
-            ["GLOBALSTAR M094", "Globalstar", 32, 288, 1414],
-            ["AO-91", "Amateur", 21, 21, 802],
-            ["NOAA 19", "NOAA", 17, 334, 854]
-        ];
+                    <section class="panel dial-display" aria-label="Marcador">
+                        <div class="dial-row">
+                            <div class="number-block">
+                                <p class="label">Marcador</p>
+                                <p id="numberText" class="number-text empty">+000000000</p>
+                            </div>
+                            <div class="timer-block">
+                                <p class="label">Tiempo</p>
+                                <p id="timerText" class="timer-text">00:00</p>
+                            </div>
+                        </div>
+                        <div id="voiceWaves" class="voice-waves" aria-hidden="true">
+                            <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+                        </div>
+                    </section>
 
-        function clamp(value, min = 0, max = 100) {
-            return Math.max(min, Math.min(max, value));
-        }
+                    <section id="keypad" class="keypad" aria-label="Teclado telefonico">
+                        <button class="key-button" type="button" data-key="1">1</button>
+                        <button class="key-button" type="button" data-key="2">2</button>
+                        <button class="key-button" type="button" data-key="3">3</button>
+                        <button class="key-button" type="button" data-key="4">4</button>
+                        <button class="key-button" type="button" data-key="5">5</button>
+                        <button class="key-button" type="button" data-key="6">6</button>
+                        <button class="key-button" type="button" data-key="7">7</button>
+                        <button class="key-button" type="button" data-key="8">8</button>
+                        <button class="key-button" type="button" data-key="9">9</button>
+                        <button class="key-button" type="button" data-key="+">+</button>
+                        <button class="key-button" type="button" data-key="0">0</button>
+                        <button class="key-button" type="button" data-key="#">#</button>
+                    </section>
 
-        function pad(value) {
-            return String(value).padStart(2, "0");
-        }
-
-        function formatDuration(seconds) {
-            return `${pad(Math.floor(seconds / 60))}:${pad(seconds % 60)}`;
-        }
-
-        function getDialToneFrequency(key) {
-            const tones = {
-                "1": 697, "2": 697, "3": 697,
-                "4": 770, "5": 770, "6": 770,
-                "7": 852, "8": 852, "9": 852,
-                "+": 941, "0": 941, "#": 941
-            };
-            return tones[key] || 880;
-        }
-
-        function withTimeout(promise, ms) {
-            let timer;
-            return Promise.race([
-                promise,
-                new Promise((_, reject) => {
-                    timer = setTimeout(() => reject(new Error("Tiempo agotado")), ms);
-                })
-            ]).finally(() => clearTimeout(timer));
-        }
-
-        function requestPosition() {
-            if (!navigator.geolocation) {
-                return Promise.resolve(DEFAULT_LOCATION);
-            }
-
-            return new Promise((resolve) => {
-                navigator.geolocation.getCurrentPosition(
-                    (position) => resolve({
-                        lat: position.coords.latitude,
-                        lon: position.coords.longitude,
-                        alt: (position.coords.altitude || 0) / 1000,
-                        label: "GPS local"
-                    }),
-                    () => resolve(DEFAULT_LOCATION),
-                    { enableHighAccuracy: true, timeout: 6500, maximumAge: 300000 }
-                );
-            });
-        }
-
-        function parseTleCatalog(text, group) {
-            const rows = text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-            const sats = [];
-
-            for (let index = 0; index < rows.length - 2 && sats.length < MAX_SATS_PER_GROUP; index += 3) {
-                const name = rows[index];
-                const line1 = rows[index + 1];
-                const line2 = rows[index + 2];
-
-                if (line1?.startsWith("1 ") && line2?.startsWith("2 ")) {
-                    sats.push({ name, line1, line2, group });
-                } else {
-                    index -= 2;
-                }
-            }
-
-            return sats;
-        }
-
-        function fallbackSatellites(seed = Date.now()) {
-            return FALLBACK_SATS.map(([name, group, elevation, azimuth, range], index) => {
-                const drift = Math.sin(seed / 48000 + index) * 8;
-                const adjustedElevation = clamp(elevation + drift, 4, 88);
-                return {
-                    id: `${group}-${name}`,
-                    name,
-                    group,
-                    elevation: adjustedElevation,
-                    azimuth: (azimuth + seed / 9000 + index * 7) % 360,
-                    range,
-                    lat: DEFAULT_LOCATION.lat + Math.sin(seed / 60000 + index) * 18,
-                    lon: DEFAULT_LOCATION.lon + Math.cos(seed / 63000 + index) * 42,
-                    score: clamp(adjustedElevation * 1.15),
-                    source: "simulado"
-                };
-            }).sort((a, b) => b.score - a.score);
-        }
-
-        function projectSatellite(record, observer, now) {
-            if (!window.satellite) {
-                throw new Error("satellite.js no disponible");
-            }
-
-            const satrec = window.satellite.twoline2satrec(record.line1, record.line2);
-            const positionAndVelocity = window.satellite.propagate(satrec, now);
-
-            if (!positionAndVelocity.position) {
-                return null;
-            }
-
-            const gmst = window.satellite.gstime(now);
-            const geodetic = window.satellite.eciToGeodetic(positionAndVelocity.position, gmst);
-            const positionEcf = window.satellite.eciToEcf(positionAndVelocity.position, gmst);
-            const observerGd = {
-                longitude: window.satellite.degreesToRadians(observer.lon),
-                latitude: window.satellite.degreesToRadians(observer.lat),
-                height: observer.alt || 0
-            };
-            const lookAngles = window.satellite.ecfToLookAngles(observerGd, positionEcf);
-            const elevation = window.satellite.radiansToDegrees(lookAngles.elevation);
-            const azimuth = window.satellite.radiansToDegrees(lookAngles.azimuth);
-            const lat = window.satellite.radiansToDegrees(geodetic.latitude);
-            const lon = window.satellite.radiansToDegrees(geodetic.longitude);
-            const height = geodetic.height;
-
-            if (!Number.isFinite(elevation) || elevation < -8) {
-                return null;
-            }
-
-            return {
-                id: `${record.group}-${record.name}`,
-                name: record.name.replace(/\s+/g, " ").slice(0, 28),
-                group: CONSTELLATIONS.find((item) => item.id === record.group)?.label || record.group,
-                elevation,
-                azimuth: (azimuth + 360) % 360,
-                range: lookAngles.rangeSat,
-                lat,
-                lon,
-                height,
-                score: clamp((elevation + 8) * 1.12),
-                source: "celestrak"
-            };
-        }
-
-        function SignalBars({ quality }) {
-            const active = Math.max(1, Math.ceil((quality / 100) * 5));
-            return (
-                <div className="flex items-end gap-1 h-5" aria-label={`senal ${Math.round(quality)} por ciento`}>
-                    {[1, 2, 3, 4, 5].map((item) => (
-                        <span
-                            key={item}
-                            className={`signal-bar ${item <= active ? "active" : ""}`}
-                            style={{ height: `${6 + item * 3}px` }}
-                        />
-                    ))}
+                    <div class="call-controls">
+                        <button id="deleteButton" class="icon-button" type="button" title="Borrar">
+                            <i class="ph ph-backspace" aria-hidden="true"></i>
+                        </button>
+                        <button id="callButton" class="icon-button call-button" type="button" title="Llamar">
+                            <i class="ph-fill ph-phone" aria-hidden="true"></i>
+                        </button>
+                        <button id="nativeButton" class="icon-button" type="button" title="Marcador nativo">
+                            <i class="ph ph-device-mobile-speaker" aria-hidden="true"></i>
+                        </button>
+                    </div>
                 </div>
-            );
-        }
+            </div>
+        </section>
 
-        function PhoneCanvas({ satellites, selected, quality, status }) {
-            const canvasRef = useRef(null);
-            const frameRef = useRef(0);
+        <aside class="command-deck" aria-label="Consola Quantum Phone">
+            <section class="panel deck-card">
+                <div class="deck-topline">
+                    <div>
+                        <p class="deck-eyebrow">Invictus Router</p>
+                        <h2 class="deck-title">Satcom Assist</h2>
+                    </div>
+                    <div>
+                        <p class="deck-eyebrow">Calidad</p>
+                        <p id="qualityLarge" class="quality-large">0%</p>
+                    </div>
+                </div>
+                <p class="deck-copy">
+                    Este HTML funciona como softphone web cuando el backend Twilio entrega un token.
+                    La capa satelital practica viene por Starlink, Iridium u otra red de datos externa.
+                </p>
+                <div class="meter"><span id="qualityMeter"></span></div>
+            </section>
 
-            useEffect(() => {
-                const canvas = canvasRef.current;
-                const ctx = canvas?.getContext("2d");
-                if (!canvas || !ctx) return;
+            <section class="panel deck-card">
+                <div class="deck-header">
+                    <h3 class="deck-heading">Constelaciones</h3>
+                    <button id="refreshButton" class="mini-button" type="button" title="Actualizar telemetria">
+                        <i class="ph ph-arrows-clockwise" aria-hidden="true"></i>
+                    </button>
+                </div>
+                <div id="constellationList" class="constellations"></div>
+            </section>
 
-                const draw = () => {
-                    const rect = canvas.getBoundingClientRect();
-                    const ratio = Math.min(window.devicePixelRatio || 1, 2);
-                    canvas.width = Math.max(1, Math.floor(rect.width * ratio));
-                    canvas.height = Math.max(1, Math.floor(rect.height * ratio));
-                    ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+            <section class="panel deck-card">
+                <div class="deck-header">
+                    <h3 class="deck-heading">Backend Voz</h3>
+                    <span id="backendState" class="sat-elevation">offline</span>
+                </div>
+                <p class="deck-copy">
+                    Endpoint activo requerido: <span class="sat-elevation">/api/twilio-token</span> y <span class="sat-elevation">/voice</span>.
+                </p>
+                <div class="backend-grid">
+                    <input id="backendInput" class="backend-url" type="url" spellcheck="false" autocomplete="off" aria-label="Backend URL">
+                    <button id="backendSave" class="backend-save" type="button">Guardar</button>
+                </div>
+            </section>
 
-                    const width = rect.width;
-                    const height = rect.height;
-                    const centerX = width / 2;
-                    const centerY = height / 2 + 8;
-                    const radius = Math.min(width, height) * 0.28;
-                    const time = Date.now() / 1000;
+            <section class="panel deck-card">
+                <div class="deck-header">
+                    <h3 class="deck-heading">Satelites Top</h3>
+                    <span id="visibleCount" class="sat-elevation">0 visibles</span>
+                </div>
+                <div id="satList" class="sat-list"></div>
+            </section>
 
-                    ctx.clearRect(0, 0, width, height);
+            <section class="panel deck-card">
+                <h3 class="deck-heading">Terminal</h3>
+                <div id="terminal" class="terminal" aria-live="polite"></div>
+            </section>
+        </aside>
+    </main>
 
-                    const sky = ctx.createRadialGradient(centerX, centerY, radius * 0.2, centerX, centerY, radius * 2.5);
-                    sky.addColorStop(0, "rgba(0, 231, 255, 0.16)");
-                    sky.addColorStop(0.52, "rgba(141, 125, 255, 0.08)");
-                    sky.addColorStop(1, "rgba(255, 255, 255, 0.00)");
-                    ctx.fillStyle = sky;
-                    ctx.fillRect(0, 0, width, height);
+    <script>
+        (() => {
+            "use strict";
 
-                    ctx.save();
-                    ctx.translate(centerX, centerY);
+            const DEFAULT_BACKEND_URL = "https://qphone-b21b0efd3de7.herokuapp.com";
+            const DEFAULT_LOCATION = { lat: 9.9281, lon: -84.0907, alt: 1.1, label: "Costa Rica fallback" };
+            const MAX_SATS_PER_GROUP = 36;
+            const E164_PATTERN = /^\+[1-9]\d{7,14}$/;
 
-                    for (let ring = 1; ring <= 4; ring += 1) {
-                        ctx.beginPath();
-                        ctx.arc(0, 0, radius * (0.72 + ring * 0.28), 0, Math.PI * 2);
-                        ctx.strokeStyle = `rgba(255,255,255,${0.08 - ring * 0.01})`;
-                        ctx.lineWidth = 1;
-                        ctx.stroke();
-                    }
+            const CONSTELLATIONS = [
+                { id: "gnss", label: "GNSS", accent: "#00e7ff", description: "GPS, Galileo, GLONASS, BeiDou" },
+                { id: "iridium-NEXT", label: "Iridium", accent: "#ffd166", description: "orbita baja de comunicacion" },
+                { id: "globalstar", label: "Globalstar", accent: "#2fffa5", description: "voz y datos satelitales" },
+                { id: "amateur", label: "Amateur", accent: "#ff5d73", description: "radioaficionados abiertos" },
+                { id: "weather", label: "NOAA", accent: "#8d7dff", description: "meteorologia y seguimiento" },
+                { id: "starlink", label: "Starlink", accent: "#ffffff", description: "constelacion de baja orbita" }
+            ];
 
-                    const sweep = (time * 0.9) % (Math.PI * 2);
-                    ctx.beginPath();
-                    ctx.moveTo(0, 0);
-                    ctx.arc(0, 0, radius * 1.86, sweep - 0.12, sweep + 0.12);
-                    ctx.closePath();
-                    ctx.fillStyle = "rgba(0, 231, 255, 0.12)";
-                    ctx.fill();
+            const FALLBACK_SATS = [
+                ["GPS BIIR-2", "GNSS", 58, 81, 20220],
+                ["GALILEO 27", "GNSS", 47, 144, 23222],
+                ["IRIDIUM 173", "Iridium", 39, 215, 780],
+                ["GLOBALSTAR M094", "Globalstar", 32, 288, 1414],
+                ["AO-91", "Amateur", 21, 21, 802],
+                ["NOAA 19", "NOAA", 17, 334, 854]
+            ];
 
-                    ctx.beginPath();
-                    ctx.arc(0, 0, radius, 0, Math.PI * 2);
-                    ctx.fillStyle = "#101827";
-                    ctx.fill();
-                    ctx.strokeStyle = "rgba(0,231,255,0.38)";
-                    ctx.lineWidth = 1.4;
-                    ctx.stroke();
+            const els = {
+                statusLine: document.getElementById("statusLine"),
+                modePill: document.getElementById("modePill"),
+                signalBars: document.getElementById("signalBars"),
+                radarCanvas: document.getElementById("radarCanvas"),
+                routeMetric: document.getElementById("routeMetric"),
+                elevationMetric: document.getElementById("elevationMetric"),
+                sourceMetric: document.getElementById("sourceMetric"),
+                scanButton: document.getElementById("scanButton"),
+                scanButtonText: document.getElementById("scanButtonText"),
+                sosButton: document.getElementById("sosButton"),
+                numberText: document.getElementById("numberText"),
+                timerText: document.getElementById("timerText"),
+                voiceWaves: document.getElementById("voiceWaves"),
+                keypad: document.getElementById("keypad"),
+                deleteButton: document.getElementById("deleteButton"),
+                callButton: document.getElementById("callButton"),
+                nativeButton: document.getElementById("nativeButton"),
+                qualityLarge: document.getElementById("qualityLarge"),
+                qualityMeter: document.getElementById("qualityMeter"),
+                refreshButton: document.getElementById("refreshButton"),
+                constellationList: document.getElementById("constellationList"),
+                backendState: document.getElementById("backendState"),
+                backendInput: document.getElementById("backendInput"),
+                backendSave: document.getElementById("backendSave"),
+                visibleCount: document.getElementById("visibleCount"),
+                satList: document.getElementById("satList"),
+                terminal: document.getElementById("terminal")
+            };
 
-                    ctx.beginPath();
-                    ctx.arc(-radius * 0.18, -radius * 0.14, radius * 0.34, 0, Math.PI * 2);
-                    ctx.fillStyle = "rgba(47,255,165,0.18)";
-                    ctx.fill();
+            const urlBackend = new URLSearchParams(location.search).get("backend");
+            const state = {
+                status: "STANDBY",
+                mode: "DEMO",
+                backendUrl: normalizeBackendUrl(urlBackend || localStorage.getItem("quantumBackendUrl") || DEFAULT_BACKEND_URL),
+                backendState: "offline",
+                number: "",
+                logs: ["Sistema listo.", "Softphone esperando token Twilio."],
+                location: DEFAULT_LOCATION,
+                selectedGroups: CONSTELLATIONS.slice(0, 4).map((item) => item.id),
+                catalog: [],
+                satellites: [],
+                dataSource: "offline",
+                scanState: "IDLE",
+                quality: 0,
+                audioLevel: 0,
+                duration: 0,
+                device: null,
+                activeCall: null,
+                timerId: 0,
+                mediaStream: null,
+                audioContext: null,
+                analyser: null,
+                audioData: null,
+                audioFrame: 0,
+                radarFrame: 0
+            };
 
-                    ctx.beginPath();
-                    ctx.arc(radius * 0.25, radius * 0.12, radius * 0.44, 0, Math.PI * 2);
-                    ctx.fillStyle = "rgba(255,209,102,0.12)";
-                    ctx.fill();
+            function clamp(value, min = 0, max = 100) {
+                return Math.max(min, Math.min(max, value));
+            }
 
-                    satellites.slice(0, 20).forEach((sat, index) => {
-                        const az = ((sat.azimuth || 0) * Math.PI) / 180 - Math.PI / 2;
-                        const orbit = radius * (1.18 + (index % 4) * 0.18);
-                        const wobble = Math.sin(time * 0.55 + index) * 6;
-                        const x = Math.cos(az) * (orbit + wobble);
-                        const y = Math.sin(az) * (orbit + wobble);
-                        const isSelected = selected?.id === sat.id;
-                        const dotSize = isSelected ? 5.5 : 3.4;
+            function pad(value) {
+                return String(value).padStart(2, "0");
+            }
 
-                        ctx.beginPath();
-                        ctx.moveTo(Math.cos(az) * radius, Math.sin(az) * radius);
-                        ctx.lineTo(x, y);
-                        ctx.strokeStyle = isSelected ? "rgba(47,255,165,0.68)" : "rgba(255,255,255,0.11)";
-                        ctx.lineWidth = isSelected ? 1.4 : 0.8;
-                        ctx.stroke();
+            function formatDuration(seconds) {
+                return `${pad(Math.floor(seconds / 60))}:${pad(seconds % 60)}`;
+            }
 
-                        ctx.beginPath();
-                        ctx.arc(x, y, dotSize, 0, Math.PI * 2);
-                        ctx.fillStyle = isSelected ? "#2fffa5" : (sat.score > 55 ? "#00e7ff" : "#ffd166");
-                        ctx.shadowColor = ctx.fillStyle;
-                        ctx.shadowBlur = isSelected ? 18 : 8;
-                        ctx.fill();
-                        ctx.shadowBlur = 0;
-                    });
+            function normalizeBackendUrl(value) {
+                return String(value || "").trim().replace(/\/+$/, "");
+            }
 
-                    ctx.restore();
+            function addLog(message) {
+                state.logs = [...state.logs, message].slice(-8);
+                renderTerminal();
+            }
 
-                    ctx.fillStyle = "rgba(255,255,255,0.74)";
-                    ctx.font = "12px Share Tech Mono, monospace";
-                    ctx.fillText(`${satellites.length} VISIBLES`, 16, 24);
+            function withTimeout(promise, ms) {
+                let timer = 0;
+                return Promise.race([
+                    promise,
+                    new Promise((_, reject) => {
+                        timer = window.setTimeout(() => reject(new Error("Tiempo agotado")), ms);
+                    })
+                ]).finally(() => window.clearTimeout(timer));
+            }
 
-                    ctx.fillStyle = quality > 66 ? "#2fffa5" : quality > 36 ? "#ffd166" : "#ff5d73";
-                    ctx.font = "bold 20px Share Tech Mono, monospace";
-                    ctx.fillText(`${Math.round(quality)}%`, 16, 48);
-
-                    if (status === "CALLING" || status === "ACTIVE") {
-                        ctx.fillStyle = "rgba(47,255,165,0.82)";
-                        ctx.font = "12px Share Tech Mono, monospace";
-                        ctx.fillText("ENLACE DE VOZ", width - 124, 24);
-                    }
-
-                    frameRef.current = requestAnimationFrame(draw);
+            function getDialToneFrequency(key) {
+                const tones = {
+                    "1": 697, "2": 697, "3": 697,
+                    "4": 770, "5": 770, "6": 770,
+                    "7": 852, "8": 852, "9": 852,
+                    "+": 941, "0": 941, "#": 941
                 };
+                return tones[key] || 880;
+            }
 
-                draw();
-                return () => cancelAnimationFrame(frameRef.current);
-            }, [satellites, selected, quality, status]);
+            function getTwilioDeviceConstructor() {
+                return window.Twilio && window.Twilio.Device;
+            }
 
-            return <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" aria-label="Radar orbital Quantum Phone" />;
-        }
-
-        function QuantumPhone() {
-            const [status, setStatus] = useState("STANDBY");
-            const [linkMode, setLinkMode] = useState("DEMO");
-            const [number, setNumber] = useState("");
-            const [logs, setLogs] = useState([
-                "Sistema listo.",
-                "Telemetria publica en espera."
-            ]);
-            const [location, setLocation] = useState(DEFAULT_LOCATION);
-            const [catalog, setCatalog] = useState([]);
-            const [selectedGroups, setSelectedGroups] = useState(CONSTELLATIONS.slice(0, 4).map((item) => item.id));
-            const [scanState, setScanState] = useState("IDLE");
-            const [dataSource, setDataSource] = useState("offline");
-            const [duration, setDuration] = useState(0);
-            const [audioLevel, setAudioLevel] = useState(0);
-            const [twilioDevice, setTwilioDevice] = useState(null);
-            const [activeCall, setActiveCall] = useState(null);
-
-            const timerRef = useRef(null);
-            const audioContextRef = useRef(null);
-            const analyserRef = useRef(null);
-            const audioDataRef = useRef(null);
-            const visualizerRef = useRef(null);
-            const mediaStreamRef = useRef(null);
-
-            const addLog = useCallback((message) => {
-                setLogs((previous) => [...previous, message].slice(-7));
-            }, []);
-
-            const visibleSatellites = useMemo(() => {
-                if (!catalog.length) {
-                    return fallbackSatellites();
+            function requestPosition() {
+                if (!navigator.geolocation) {
+                    return Promise.resolve(DEFAULT_LOCATION);
                 }
 
-                const now = new Date();
-                const projected = catalog
-                    .filter((record) => selectedGroups.includes(record.group))
-                    .map((record) => {
-                        try {
-                            return projectSatellite(record, location, now);
-                        } catch (error) {
-                            return null;
-                        }
-                    })
-                    .filter(Boolean)
-                    .sort((a, b) => b.score - a.score);
+                return new Promise((resolve) => {
+                    navigator.geolocation.getCurrentPosition(
+                        (position) => resolve({
+                            lat: position.coords.latitude,
+                            lon: position.coords.longitude,
+                            alt: (position.coords.altitude || 0) / 1000,
+                            label: "GPS local"
+                        }),
+                        () => resolve(DEFAULT_LOCATION),
+                        { enableHighAccuracy: true, timeout: 6500, maximumAge: 300000 }
+                    );
+                });
+            }
 
-                return projected.length ? projected.slice(0, 42) : fallbackSatellites();
-            }, [catalog, location, selectedGroups]);
+            function parseTleCatalog(text, group) {
+                const rows = text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+                const sats = [];
 
-            const bestSatellite = visibleSatellites[0];
-            const signalQuality = clamp((bestSatellite?.score || 32) + Math.min(26, visibleSatellites.length * 1.3));
-            const routeName = bestSatellite ? `${bestSatellite.group} / ${bestSatellite.name}` : "Buscando cielo";
+                for (let index = 0; index < rows.length - 2 && sats.length < MAX_SATS_PER_GROUP; index += 3) {
+                    const name = rows[index];
+                    const line1 = rows[index + 1];
+                    const line2 = rows[index + 2];
 
-            const scanCatalog = useCallback(async () => {
-                setScanState("SCANNING");
+                    if (line1 && line2 && line1.startsWith("1 ") && line2.startsWith("2 ")) {
+                        sats.push({ name, line1, line2, group });
+                    } else {
+                        index -= 2;
+                    }
+                }
+
+                return sats;
+            }
+
+            function fallbackSatellites(seed = Date.now()) {
+                return FALLBACK_SATS.map(([name, group, elevation, azimuth, range], index) => {
+                    const drift = Math.sin(seed / 48000 + index) * 8;
+                    const adjustedElevation = clamp(elevation + drift, 4, 88);
+                    return {
+                        id: `${group}-${name}`,
+                        name,
+                        group,
+                        elevation: adjustedElevation,
+                        azimuth: (azimuth + seed / 9000 + index * 7) % 360,
+                        range,
+                        lat: DEFAULT_LOCATION.lat + Math.sin(seed / 60000 + index) * 18,
+                        lon: DEFAULT_LOCATION.lon + Math.cos(seed / 63000 + index) * 42,
+                        score: clamp(adjustedElevation * 1.15),
+                        source: "simulado"
+                    };
+                }).sort((a, b) => b.score - a.score);
+            }
+
+            function projectSatellite(record, observer, now) {
+                if (!window.satellite) {
+                    throw new Error("satellite.js no disponible");
+                }
+
+                const satrec = window.satellite.twoline2satrec(record.line1, record.line2);
+                const positionAndVelocity = window.satellite.propagate(satrec, now);
+                if (!positionAndVelocity.position) return null;
+
+                const gmst = window.satellite.gstime(now);
+                const geodetic = window.satellite.eciToGeodetic(positionAndVelocity.position, gmst);
+                const positionEcf = window.satellite.eciToEcf(positionAndVelocity.position, gmst);
+                const observerGd = {
+                    longitude: window.satellite.degreesToRadians(observer.lon),
+                    latitude: window.satellite.degreesToRadians(observer.lat),
+                    height: observer.alt || 0
+                };
+                const lookAngles = window.satellite.ecfToLookAngles(observerGd, positionEcf);
+                const elevation = window.satellite.radiansToDegrees(lookAngles.elevation);
+                const azimuth = window.satellite.radiansToDegrees(lookAngles.azimuth);
+                const lat = window.satellite.radiansToDegrees(geodetic.latitude);
+                const lon = window.satellite.radiansToDegrees(geodetic.longitude);
+
+                if (!Number.isFinite(elevation) || elevation < -8) return null;
+
+                return {
+                    id: `${record.group}-${record.name}`,
+                    name: record.name.replace(/\s+/g, " ").slice(0, 28),
+                    group: (CONSTELLATIONS.find((item) => item.id === record.group) || record).label || record.group,
+                    elevation,
+                    azimuth: (azimuth + 360) % 360,
+                    range: lookAngles.rangeSat,
+                    lat,
+                    lon,
+                    height: geodetic.height,
+                    score: clamp((elevation + 8) * 1.12),
+                    source: "celestrak"
+                };
+            }
+
+            function computeSatellites() {
+                if (!state.catalog.length) {
+                    state.satellites = fallbackSatellites();
+                } else {
+                    const now = new Date();
+                    const projected = state.catalog
+                        .filter((record) => state.selectedGroups.includes(record.group))
+                        .map((record) => {
+                            try {
+                                return projectSatellite(record, state.location, now);
+                            } catch (error) {
+                                return null;
+                            }
+                        })
+                        .filter(Boolean)
+                        .sort((a, b) => b.score - a.score);
+                    state.satellites = projected.length ? projected.slice(0, 42) : fallbackSatellites();
+                }
+
+                const best = state.satellites[0];
+                state.quality = clamp((best ? best.score : 32) + Math.min(26, state.satellites.length * 1.3));
+            }
+
+            async function scanCatalog() {
+                state.scanState = "SCANNING";
                 addLog("Escaneando constelaciones abiertas...");
+                render();
 
                 try {
                     const position = await requestPosition();
-                    setLocation(position);
+                    state.location = position;
                     addLog(`Nodo local: ${position.lat.toFixed(3)}, ${position.lon.toFixed(3)}`);
 
-                    const requests = selectedGroups.map(async (group) => {
+                    const requests = state.selectedGroups.map(async (group) => {
                         const url = `https://celestrak.org/NORAD/elements/gp.php?GROUP=${encodeURIComponent(group)}&FORMAT=TLE`;
                         const response = await withTimeout(fetch(url, { cache: "no-store" }), 9000);
-                        if (!response.ok) {
-                            throw new Error(`${group} ${response.status}`);
-                        }
+                        if (!response.ok) throw new Error(`${group} ${response.status}`);
                         return parseTleCatalog(await response.text(), group);
                     });
 
                     const results = await Promise.allSettled(requests);
                     const records = results.flatMap((result) => result.status === "fulfilled" ? result.value : []);
 
-                    if (!records.length) {
-                        throw new Error("Sin respuesta TLE util");
-                    }
+                    if (!records.length) throw new Error("Sin respuesta TLE util");
 
-                    setCatalog(records);
-                    setDataSource("celestrak");
-                    setScanState("READY");
+                    state.catalog = records;
+                    state.dataSource = "celestrak";
+                    state.scanState = "READY";
+                    computeSatellites();
                     addLog(`${records.length} satelites indexados.`);
                     addLog("Ruta optima recalculada.");
                 } catch (error) {
-                    setCatalog([]);
-                    setDataSource("simulado");
-                    setScanState("READY");
+                    state.catalog = [];
+                    state.dataSource = "simulado";
+                    state.scanState = "READY";
+                    computeSatellites();
                     addLog(`Telemetria fallback: ${error.message}`);
                     addLog("Modelo orbital simulado activo.");
                 }
-            }, [addLog, selectedGroups]);
 
-            const setupAudioVisualizer = useCallback((stream) => {
-                try {
-                    mediaStreamRef.current = stream;
-                    const AudioContext = window.AudioContext || window.webkitAudioContext;
-                    if (!AudioContext) return;
+                render();
+            }
 
-                    if (!audioContextRef.current) {
-                        audioContextRef.current = new AudioContext();
-                    }
-
-                    if (audioContextRef.current.state === "suspended") {
-                        audioContextRef.current.resume();
-                    }
-
-                    analyserRef.current = audioContextRef.current.createAnalyser();
-                    analyserRef.current.fftSize = 256;
-                    const source = audioContextRef.current.createMediaStreamSource(stream);
-                    source.connect(analyserRef.current);
-                    audioDataRef.current = new Uint8Array(analyserRef.current.frequencyBinCount);
-
-                    const tick = () => {
-                        if (!analyserRef.current || !audioDataRef.current) return;
-                        analyserRef.current.getByteFrequencyData(audioDataRef.current);
-                        const total = audioDataRef.current.reduce((sum, value) => sum + value, 0);
-                        setAudioLevel(total / audioDataRef.current.length);
-                        visualizerRef.current = requestAnimationFrame(tick);
-                    };
-
-                    tick();
-                } catch (error) {
-                    addLog("Visualizador sin microfono.");
+            async function startMicrophone() {
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    addLog("Microfono no soportado.");
+                    return null;
                 }
-            }, [addLog]);
-
-            const startMicrophone = useCallback(async () => {
-                if (!navigator.mediaDevices?.getUserMedia) return null;
 
                 try {
                     const stream = await navigator.mediaDevices.getUserMedia({
@@ -787,16 +1277,57 @@
                     addLog("Microfono no concedido.");
                     return null;
                 }
-            }, [addLog, setupAudioVisualizer]);
+            }
 
-            const registerVoiceLink = useCallback(async () => {
-                if (!window.Twilio?.Device) {
-                    throw new Error("SDK de voz no disponible");
+            function setupAudioVisualizer(stream) {
+                try {
+                    state.mediaStream = stream;
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    if (!AudioContext) return;
+
+                    if (!state.audioContext) {
+                        state.audioContext = new AudioContext();
+                    }
+
+                    if (state.audioContext.state === "suspended") {
+                        state.audioContext.resume();
+                    }
+
+                    state.analyser = state.audioContext.createAnalyser();
+                    state.analyser.fftSize = 256;
+                    const source = state.audioContext.createMediaStreamSource(stream);
+                    source.connect(state.analyser);
+                    state.audioData = new Uint8Array(state.analyser.frequencyBinCount);
+
+                    const tick = () => {
+                        if (!state.analyser || !state.audioData) return;
+                        state.analyser.getByteFrequencyData(state.audioData);
+                        const total = state.audioData.reduce((sum, value) => sum + value, 0);
+                        state.audioLevel = total / state.audioData.length;
+                        updateWaves();
+                        state.audioFrame = requestAnimationFrame(tick);
+                    };
+                    tick();
+                } catch (error) {
+                    addLog("Visualizador sin microfono.");
+                }
+            }
+
+            async function registerVoiceLink() {
+                const Device = getTwilioDeviceConstructor();
+                if (!Device) {
+                    throw new Error("Twilio SDK no cargado");
                 }
 
-                const response = await withTimeout(fetch(`${BACKEND_URL}/api/twilio-token`, { cache: "no-store" }), 8000);
+                if (!state.backendUrl) {
+                    throw new Error("Backend no configurado");
+                }
+
+                const endpoint = `${state.backendUrl}/api/twilio-token`;
+                const response = await withTimeout(fetch(endpoint, { cache: "no-store" }), 9000);
+                state.backendState = `${response.status}`;
                 if (!response.ok) {
-                    throw new Error(`Backend ${response.status}`);
+                    throw new Error(`/api/twilio-token ${response.status}`);
                 }
 
                 const payload = await response.json();
@@ -804,145 +1335,201 @@
                     throw new Error("Token vacio");
                 }
 
-                const device = new window.Twilio.Device(payload.token, {
+                const device = new Device(payload.token, {
                     codecPreferences: ["opus", "pcmu"],
                     enableRingingState: true,
                     fakeLocalDTMF: true
                 });
 
-                await new Promise((resolve, reject) => {
-                    const timeout = setTimeout(() => reject(new Error("Registro de voz agotado")), 8500);
-                    device.on("registered", () => {
-                        clearTimeout(timeout);
-                        resolve();
-                    });
-                    device.on("error", (error) => {
-                        clearTimeout(timeout);
-                        reject(error);
-                    });
-                    device.register();
+                device.on("registered", () => {
+                    state.mode = "LIVE";
+                    state.backendState = "token ok";
+                    addLog("Twilio.Device registrado.");
+                    render();
+                });
+                device.on("unregistered", () => {
+                    state.mode = "DEMO";
+                    addLog("Twilio.Device sin registro.");
+                    render();
+                });
+                device.on("error", (error) => {
+                    addLog(`Twilio: ${error.message || error.code || "error"}`);
+                    state.backendState = "error";
+                    render();
+                });
+                device.on("tokenWillExpire", async () => {
+                    try {
+                        const refresh = await fetch(endpoint, { cache: "no-store" });
+                        const nextPayload = await refresh.json();
+                        if (nextPayload.token) device.updateToken(nextPayload.token);
+                    } catch (error) {
+                        addLog("No se pudo renovar token.");
+                    }
                 });
 
+                await device.register();
                 return device;
-            }, []);
+            }
 
-            const bootPhone = useCallback(async () => {
-                setStatus("BOOT");
+            async function bootPhone() {
+                if (state.status === "BOOT") return;
+                state.status = "BOOT";
                 addLog("Iniciando Quantum Phone...");
+                render();
+
                 await scanCatalog();
                 await startMicrophone();
 
                 try {
-                    const device = await registerVoiceLink();
-                    setTwilioDevice(device);
-                    setLinkMode("LIVE");
-                    addLog("Canal WebVoice registrado.");
+                    state.device = await registerVoiceLink();
+                    state.mode = "LIVE";
+                    addLog("Canal WebRTC listo.");
                 } catch (error) {
-                    setTwilioDevice(null);
-                    setLinkMode("DEMO");
-                    addLog(`Voz en demo: ${error.message}`);
+                    state.device = null;
+                    state.mode = "DEMO";
+                    state.backendState = error.message;
+                    addLog(`Voz real no lista: ${error.message}`);
                 }
 
-                setStatus("READY");
-            }, [addLog, registerVoiceLink, scanCatalog, startMicrophone]);
+                state.status = "READY";
+                render();
+            }
 
-            const playTone = useCallback((key) => {
+            function playTone(key) {
                 try {
                     const AudioContext = window.AudioContext || window.webkitAudioContext;
                     const context = new AudioContext();
                     const oscillator = context.createOscillator();
                     const gain = context.createGain();
-
                     oscillator.type = "sine";
                     oscillator.frequency.value = getDialToneFrequency(key);
                     gain.gain.setValueAtTime(0.05, context.currentTime);
                     gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.12);
-
                     oscillator.connect(gain);
                     gain.connect(context.destination);
                     oscillator.start();
                     oscillator.stop(context.currentTime + 0.13);
                 } catch (error) {
-                    // AudioContext can be blocked by device policy.
+                    // Browser audio policy can block generated tones.
                 }
-            }, []);
+            }
 
-            const dial = useCallback((key) => {
-                setNumber((previous) => {
-                    if (previous.length >= 18) return previous;
-                    if (key === "+" && previous.includes("+")) return previous;
-                    return `${previous}${key}`;
-                });
+            function dial(key) {
+                if (isDialLocked()) return;
+                if (state.number.length >= 18) return;
+                if (key === "+" && state.number.includes("+")) return;
+                state.number += key;
                 playTone(key);
-            }, [playTone]);
+                render();
+            }
 
-            const endCall = useCallback((message = "Llamada finalizada.") => {
-                if (activeCall) {
-                    try {
-                        activeCall.disconnect();
-                    } catch (error) {
-                        // Twilio can already be closed.
-                    }
+            async function startCall() {
+                if (!state.number || state.status === "CALLING" || state.status === "ACTIVE") return;
+
+                if (!E164_PATTERN.test(state.number)) {
+                    addLog("Numero invalido. Use E.164: +50688888888");
+                    return;
                 }
-                setActiveCall(null);
-                setStatus("READY");
-                setNumber("");
-                addLog(message);
-            }, [activeCall, addLog]);
 
-            const startCall = useCallback(async () => {
-                if (!number || status === "CALLING" || status === "ACTIVE") return;
+                state.status = "CALLING";
+                addLog(`Ruta: ${routeName()}`);
+                addLog(`Marcando ${state.number}`);
+                render();
 
-                setStatus("CALLING");
-                addLog(`Ruta: ${routeName}`);
-                addLog(`Marcando ${number}`);
                 await startMicrophone();
 
-                if (linkMode === "LIVE" && twilioDevice) {
+                if (state.mode === "LIVE" && state.device) {
                     try {
-                        const call = await twilioDevice.connect({ params: { To: number } });
-                        setActiveCall(call);
+                        const call = await state.device.connect({ params: { To: state.number } });
+                        state.activeCall = call;
                         call.on("accept", () => {
-                            setStatus("ACTIVE");
+                            state.status = "ACTIVE";
+                            startTimer();
                             addLog("Voz conectada.");
+                            render();
+                        });
+                        call.on("ringing", () => {
+                            addLog("Ringing...");
                         });
                         call.on("disconnect", () => endCall("Conexion cerrada."));
                         call.on("cancel", () => endCall("Marcacion cancelada."));
+                        call.on("reject", () => endCall("Llamada rechazada."));
                         call.on("error", (error) => {
-                            addLog(`Error de voz: ${error.message}`);
+                            addLog(`Error de voz: ${error.message || error.code}`);
                             endCall("Fallo de enlace.");
                         });
                     } catch (error) {
                         addLog(`Live fallido: ${error.message}`);
-                        setLinkMode("DEMO");
-                        setTimeout(() => {
-                            setStatus("ACTIVE");
-                            addLog("Demo de voz conectada.");
-                        }, 1100);
+                        state.mode = "DEMO";
+                        simulateCall();
                     }
                     return;
                 }
 
-                setTimeout(() => {
-                    setStatus("ACTIVE");
+                addLog("Sin token Twilio: simulando llamada.");
+                simulateCall();
+            }
+
+            function simulateCall() {
+                window.setTimeout(() => {
+                    if (state.status !== "CALLING") return;
+                    state.status = "ACTIVE";
+                    startTimer();
                     addLog("Demo de voz conectada.");
-                }, 1100);
-            }, [addLog, endCall, linkMode, number, routeName, startMicrophone, status, twilioDevice]);
+                    render();
+                }, 900);
+            }
 
-            const openNativeDialer = useCallback(() => {
-                if (!number) return;
+            function endCall(message = "Llamada finalizada.") {
+                if (state.activeCall) {
+                    try {
+                        state.activeCall.disconnect();
+                    } catch (error) {
+                        // Call can already be closed by Twilio.
+                    }
+                }
+                state.activeCall = null;
+                state.status = "READY";
+                state.number = "";
+                stopTimer();
+                addLog(message);
+                render();
+            }
+
+            function startTimer() {
+                stopTimer();
+                state.duration = 0;
+                state.timerId = window.setInterval(() => {
+                    state.duration += 1;
+                    els.timerText.textContent = formatDuration(state.duration);
+                }, 1000);
+            }
+
+            function stopTimer() {
+                window.clearInterval(state.timerId);
+                state.timerId = 0;
+                state.duration = 0;
+                els.timerText.textContent = "00:00";
+            }
+
+            function openNativeDialer() {
+                if (!state.number || !E164_PATTERN.test(state.number)) {
+                    addLog("Marcador nativo requiere numero +E.164.");
+                    return;
+                }
                 addLog("Abriendo marcador nativo.");
-                window.location.href = `tel:${number}`;
-            }, [addLog, number]);
+                window.location.href = `tel:${state.number}`;
+            }
 
-            const copySignalPacket = useCallback(async () => {
+            async function copySignalPacket() {
                 const packet = [
                     "QUANTUM PHONE SOS",
-                    `Numero: ${number || "sin marcar"}`,
-                    `Posicion: ${location.lat.toFixed(5)}, ${location.lon.toFixed(5)}`,
-                    `Ruta: ${routeName}`,
-                    `Calidad: ${Math.round(signalQuality)}%`,
-                    `Fuente: ${dataSource}`
+                    `Numero: ${state.number || "sin marcar"}`,
+                    `Posicion: ${state.location.lat.toFixed(5)}, ${state.location.lon.toFixed(5)}`,
+                    `Ruta: ${routeName()}`,
+                    `Calidad: ${Math.round(state.quality)}%`,
+                    `Fuente: ${state.dataSource}`,
+                    `Backend: ${state.backendUrl || "sin configurar"}`
                 ].join("\n");
 
                 try {
@@ -951,291 +1538,316 @@
                 } catch (error) {
                     addLog("Clipboard no disponible.");
                 }
-            }, [addLog, dataSource, location, number, routeName, signalQuality]);
+            }
 
-            const toggleGroup = useCallback((id) => {
-                setSelectedGroups((previous) => {
-                    if (previous.includes(id) && previous.length === 1) return previous;
-                    if (previous.includes(id)) return previous.filter((item) => item !== id);
-                    return [...previous, id];
-                });
-                setCatalog([]);
-                setDataSource("offline");
-                setScanState("IDLE");
-            }, []);
-
-            useEffect(() => {
-                if (status === "ACTIVE") {
-                    timerRef.current = setInterval(() => setDuration((value) => value + 1), 1000);
+            function toggleGroup(id) {
+                if (state.selectedGroups.includes(id) && state.selectedGroups.length === 1) return;
+                if (state.selectedGroups.includes(id)) {
+                    state.selectedGroups = state.selectedGroups.filter((item) => item !== id);
                 } else {
-                    clearInterval(timerRef.current);
-                    setDuration(0);
+                    state.selectedGroups = [...state.selectedGroups, id];
+                }
+                state.catalog = [];
+                state.dataSource = "offline";
+                state.scanState = "IDLE";
+                computeSatellites();
+                render();
+            }
+
+            function saveBackendUrl() {
+                const next = normalizeBackendUrl(els.backendInput.value);
+                state.backendUrl = next;
+                if (next) {
+                    localStorage.setItem("quantumBackendUrl", next);
+                    addLog("Backend actualizado.");
+                } else {
+                    localStorage.removeItem("quantumBackendUrl");
+                    addLog("Backend borrado.");
+                }
+                state.backendState = "pendiente";
+                render();
+            }
+
+            function routeName() {
+                const best = state.satellites[0];
+                return best ? `${best.group} / ${best.name}` : "Buscando cielo";
+            }
+
+            function statusCopy() {
+                if (state.status === "STANDBY") return "SISTEMA CERRADO";
+                if (state.status === "BOOT") return "SINCRONIZANDO";
+                if (state.status === "CALLING") return "MARCANDO";
+                if (state.status === "ACTIVE") return "EN LINEA";
+                return state.mode === "LIVE" ? "WEBVOICE LIVE" : "DEMO SEGURO";
+            }
+
+            function isDialLocked() {
+                return ["STANDBY", "BOOT", "CALLING", "ACTIVE"].includes(state.status);
+            }
+
+            function renderConstellations() {
+                els.constellationList.innerHTML = "";
+                CONSTELLATIONS.forEach((item) => {
+                    const button = document.createElement("button");
+                    button.type = "button";
+                    button.className = "constellation-button";
+                    button.setAttribute("aria-pressed", state.selectedGroups.includes(item.id) ? "true" : "false");
+                    button.innerHTML = `
+                        <span class="constellation-name">${item.label}</span>
+                        <span class="constellation-desc">${item.description}</span>
+                    `;
+                    button.querySelector(".constellation-name").style.color = state.selectedGroups.includes(item.id) ? item.accent : "";
+                    button.addEventListener("click", () => toggleGroup(item.id));
+                    els.constellationList.appendChild(button);
+                });
+            }
+
+            function renderSatellites() {
+                els.satList.innerHTML = "";
+                state.satellites.slice(0, 7).forEach((sat) => {
+                    const row = document.createElement("div");
+                    row.className = "sat-row soft-panel";
+                    row.innerHTML = `
+                        <div class="sat-copy">
+                            <p class="sat-name"></p>
+                            <p class="sat-meta"></p>
+                        </div>
+                        <span class="sat-elevation">${Math.round(sat.elevation)} deg</span>
+                    `;
+                    row.querySelector(".sat-name").textContent = sat.name;
+                    row.querySelector(".sat-meta").textContent = `${sat.group} / AZ ${Math.round(sat.azimuth)} / ${Math.round(sat.range || 0)} km`;
+                    els.satList.appendChild(row);
+                });
+                els.visibleCount.textContent = `${state.satellites.length} visibles`;
+            }
+
+            function renderTerminal() {
+                els.terminal.innerHTML = state.logs.map((entry) => `<p><span>&gt;</span> ${escapeHtml(entry)}</p>`).join("");
+                els.terminal.scrollTop = els.terminal.scrollHeight;
+            }
+
+            function escapeHtml(value) {
+                return String(value)
+                    .replace(/&/g, "&amp;")
+                    .replace(/</g, "&lt;")
+                    .replace(/>/g, "&gt;")
+                    .replace(/"/g, "&quot;")
+                    .replace(/'/g, "&#039;");
+            }
+
+            function render() {
+                computeSatellites();
+                const best = state.satellites[0];
+                const quality = Math.round(state.quality);
+
+                els.statusLine.textContent = statusCopy();
+                els.statusLine.classList.toggle("live", state.status === "ACTIVE" || state.mode === "LIVE");
+                els.modePill.textContent = state.mode;
+
+                Array.from(els.signalBars.children).forEach((bar, index) => {
+                    bar.classList.toggle("active", index < Math.max(1, Math.ceil((state.quality / 100) * 5)));
+                });
+
+                els.routeMetric.textContent = best ? best.group : "SKY";
+                els.elevationMetric.textContent = `${Math.round(best ? best.elevation : 0)} deg`;
+                els.sourceMetric.textContent = state.dataSource;
+                els.qualityLarge.textContent = `${quality}%`;
+                els.qualityMeter.style.width = `${quality}%`;
+                els.backendState.textContent = state.backendState;
+
+                els.scanButtonText.textContent = state.status === "STANDBY" ? "Iniciar" : "Escanear";
+                els.scanButton.disabled = state.status === "BOOT" || state.status === "CALLING" || state.status === "ACTIVE";
+                els.refreshButton.disabled = state.scanState === "SCANNING";
+
+                const scanIcon = els.scanButton.querySelector("i");
+                scanIcon.className = state.status === "BOOT" || state.scanState === "SCANNING" ? "ph ph-circle-notch" : "ph ph-crosshair";
+
+                els.numberText.textContent = state.number || "+000000000";
+                els.numberText.classList.toggle("empty", !state.number);
+                els.timerText.textContent = formatDuration(state.duration);
+
+                const keypadLocked = isDialLocked();
+                els.keypad.querySelectorAll("button").forEach((button) => {
+                    button.disabled = keypadLocked;
+                });
+                els.deleteButton.disabled = !state.number || keypadLocked;
+                els.nativeButton.disabled = !state.number || keypadLocked;
+                els.callButton.disabled = !state.number || state.status === "STANDBY" || state.status === "BOOT";
+
+                const isCalling = state.status === "CALLING" || state.status === "ACTIVE";
+                els.callButton.classList.toggle("end-button", isCalling);
+                els.callButton.classList.toggle("call-button", !isCalling);
+                els.callButton.title = isCalling ? "Colgar" : "Llamar";
+                els.callButton.innerHTML = isCalling ? '<i class="ph-fill ph-phone-disconnect" aria-hidden="true"></i>' : '<i class="ph-fill ph-phone" aria-hidden="true"></i>';
+                els.voiceWaves.classList.toggle("active", isCalling);
+
+                els.backendInput.value = state.backendUrl;
+
+                renderSatellites();
+                renderTerminal();
+                updateWaves();
+            }
+
+            function updateWaves() {
+                const bars = Array.from(els.voiceWaves.children);
+                bars.forEach((bar, index) => {
+                    const centerDrop = 1 - Math.abs(index - 4) / 5;
+                    const height = Math.max(5, (state.audioLevel / 255) * 58 * centerDrop);
+                    bar.style.height = state.status === "ACTIVE" ? `${height}px` : "7px";
+                    bar.style.opacity = state.status === "ACTIVE" ? "1" : "0.35";
+                });
+            }
+
+            function drawRadar() {
+                const canvas = els.radarCanvas;
+                const ctx = canvas.getContext("2d");
+                const rect = canvas.getBoundingClientRect();
+                const ratio = Math.min(window.devicePixelRatio || 1, 2);
+                canvas.width = Math.max(1, Math.floor(rect.width * ratio));
+                canvas.height = Math.max(1, Math.floor(rect.height * ratio));
+                ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+
+                const width = rect.width;
+                const height = rect.height;
+                const centerX = width / 2;
+                const centerY = height / 2 + 8;
+                const radius = Math.min(width, height) * 0.28;
+                const time = Date.now() / 1000;
+                const best = state.satellites[0];
+
+                ctx.clearRect(0, 0, width, height);
+
+                const sky = ctx.createRadialGradient(centerX, centerY, radius * 0.2, centerX, centerY, radius * 2.5);
+                sky.addColorStop(0, "rgba(0, 231, 255, 0.16)");
+                sky.addColorStop(0.52, "rgba(141, 125, 255, 0.08)");
+                sky.addColorStop(1, "rgba(255, 255, 255, 0.00)");
+                ctx.fillStyle = sky;
+                ctx.fillRect(0, 0, width, height);
+
+                ctx.save();
+                ctx.translate(centerX, centerY);
+
+                for (let ring = 1; ring <= 4; ring += 1) {
+                    ctx.beginPath();
+                    ctx.arc(0, 0, radius * (0.72 + ring * 0.28), 0, Math.PI * 2);
+                    ctx.strokeStyle = `rgba(255,255,255,${0.08 - ring * 0.01})`;
+                    ctx.lineWidth = 1;
+                    ctx.stroke();
                 }
 
-                return () => clearInterval(timerRef.current);
-            }, [status]);
+                const sweep = (time * 0.9) % (Math.PI * 2);
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.arc(0, 0, radius * 1.86, sweep - 0.12, sweep + 0.12);
+                ctx.closePath();
+                ctx.fillStyle = "rgba(0, 231, 255, 0.12)";
+                ctx.fill();
 
-            useEffect(() => {
-                return () => {
-                    clearInterval(timerRef.current);
-                    cancelAnimationFrame(visualizerRef.current);
-                    mediaStreamRef.current?.getTracks()?.forEach((track) => track.stop());
-                };
-            }, []);
+                ctx.beginPath();
+                ctx.arc(0, 0, radius, 0, Math.PI * 2);
+                ctx.fillStyle = "#101827";
+                ctx.fill();
+                ctx.strokeStyle = "rgba(0,231,255,0.38)";
+                ctx.lineWidth = 1.4;
+                ctx.stroke();
 
-            const waves = Array.from({ length: 9 }, (_, index) => {
-                const centerDrop = 1 - Math.abs(index - 4) / 5;
-                return Math.max(5, (audioLevel / 255) * 58 * centerDrop);
-            });
+                ctx.beginPath();
+                ctx.arc(-radius * 0.18, -radius * 0.14, radius * 0.34, 0, Math.PI * 2);
+                ctx.fillStyle = "rgba(47,255,165,0.18)";
+                ctx.fill();
 
-            const statusCopy = {
-                STANDBY: "SISTEMA CERRADO",
-                BOOT: "SINCRONIZANDO",
-                READY: linkMode === "LIVE" ? "WEBVOICE LIVE" : "DEMO SEGURO",
-                CALLING: "MARCANDO",
-                ACTIVE: "EN LINEA"
-            }[status];
+                ctx.beginPath();
+                ctx.arc(radius * 0.25, radius * 0.12, radius * 0.44, 0, Math.PI * 2);
+                ctx.fillStyle = "rgba(255,209,102,0.12)";
+                ctx.fill();
 
-            return (
-                <main className="app-shell">
-                    <section className="phone-frame" aria-label="Quantum Phone">
-                        <div className="notch"></div>
-                        <div className="phone-screen">
-                            <header className="px-5 pt-7 pb-3 flex items-center justify-between border-b border-white/10">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-full grid place-items-center bg-white/10 border border-white/10">
-                                        <i className="ph-fill ph-satellite-dish text-quantum-cyan text-xl"></i>
-                                    </div>
-                                    <div>
-                                        <h1 className="font-display text-sm tracking-[0.18em] font-bold">QUANTUM PHONE</h1>
-                                        <p className={`font-mono text-[10px] tracking-[0.18em] ${status === "ACTIVE" ? "text-quantum-green pulse-dot" : "text-white/58"}`}>
-                                            {statusCopy}
-                                        </p>
-                                    </div>
-                                </div>
+                state.satellites.slice(0, 20).forEach((sat, index) => {
+                    const az = ((sat.azimuth || 0) * Math.PI) / 180 - Math.PI / 2;
+                    const orbit = radius * (1.18 + (index % 4) * 0.18);
+                    const wobble = Math.sin(time * 0.55 + index) * 6;
+                    const x = Math.cos(az) * (orbit + wobble);
+                    const y = Math.sin(az) * (orbit + wobble);
+                    const isSelected = best && best.id === sat.id;
+                    const dotSize = isSelected ? 5.5 : 3.4;
 
-                                <div className="flex items-center gap-3">
-                                    <SignalBars quality={signalQuality} />
-                                    <span className="font-mono text-xs text-white/72 compact-hide">{linkMode}</span>
-                                </div>
-                            </header>
+                    ctx.beginPath();
+                    ctx.moveTo(Math.cos(az) * radius, Math.sin(az) * radius);
+                    ctx.lineTo(x, y);
+                    ctx.strokeStyle = isSelected ? "rgba(47,255,165,0.68)" : "rgba(255,255,255,0.11)";
+                    ctx.lineWidth = isSelected ? 1.4 : 0.8;
+                    ctx.stroke();
 
-                            <div className="p-4 flex-1 flex flex-col gap-3 min-h-0">
-                                <div className="relative panel overflow-hidden h-[230px] shrink-0">
-                                    <PhoneCanvas
-                                        satellites={visibleSatellites}
-                                        selected={bestSatellite}
-                                        quality={signalQuality}
-                                        status={status}
-                                    />
-                                    <div className="scan-line"></div>
-                                    <div className="absolute left-3 right-3 bottom-3 grid grid-cols-3 gap-2">
-                                        <div className="soft-panel px-2 py-2">
-                                            <p className="text-[9px] font-mono text-white/48 tracking-[0.16em]">RUTA</p>
-                                            <p className="text-xs font-bold truncate">{bestSatellite?.group || "SKY"}</p>
-                                        </div>
-                                        <div className="soft-panel px-2 py-2">
-                                            <p className="text-[9px] font-mono text-white/48 tracking-[0.16em]">ELEV</p>
-                                            <p className="text-xs font-bold">{Math.round(bestSatellite?.elevation || 0)} deg</p>
-                                        </div>
-                                        <div className="soft-panel px-2 py-2">
-                                            <p className="text-[9px] font-mono text-white/48 tracking-[0.16em]">FUENTE</p>
-                                            <p className="text-xs font-bold uppercase">{dataSource}</p>
-                                        </div>
-                                    </div>
-                                </div>
+                    ctx.beginPath();
+                    ctx.arc(x, y, dotSize, 0, Math.PI * 2);
+                    ctx.fillStyle = isSelected ? "#2fffa5" : (sat.score > 55 ? "#00e7ff" : "#ffd166");
+                    ctx.shadowColor = ctx.fillStyle;
+                    ctx.shadowBlur = isSelected ? 18 : 8;
+                    ctx.fill();
+                    ctx.shadowBlur = 0;
+                });
 
-                                <div className="grid grid-cols-2 gap-3">
-                                    <button
-                                        type="button"
-                                        onClick={status === "STANDBY" ? bootPhone : scanCatalog}
-                                        disabled={status === "BOOT" || status === "CALLING" || status === "ACTIVE"}
-                                        className="panel h-12 flex items-center justify-center gap-2 font-display text-xs tracking-[0.14em] text-quantum-cyan disabled:opacity-50"
-                                        title="Escanear cielo"
-                                    >
-                                        <i className={`ph ${status === "BOOT" || scanState === "SCANNING" ? "ph-circle-notch animate-spin" : "ph-crosshair"} text-lg`}></i>
-                                        {status === "STANDBY" ? "INICIAR" : "ESCANEAR"}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={copySignalPacket}
-                                        className="panel h-12 flex items-center justify-center gap-2 font-display text-xs tracking-[0.14em] text-quantum-gold"
-                                        title="Copiar paquete SOS"
-                                    >
-                                        <i className="ph ph-shield-warning text-lg"></i>
-                                        SOS PACKET
-                                    </button>
-                                </div>
+                ctx.restore();
 
-                                <div className="panel px-4 py-3">
-                                    <div className="flex items-center justify-between gap-3">
-                                        <div className="min-w-0">
-                                            <p className="font-mono text-[10px] text-white/45 tracking-[0.16em]">MARCADOR</p>
-                                            <p className="font-mono text-3xl h-10 truncate tracking-[0.06em]">
-                                                {number || <span className="text-white/25 text-2xl">+000000000</span>}
-                                            </p>
-                                        </div>
-                                        <div className="text-right shrink-0">
-                                            <p className="font-mono text-[10px] text-white/45 tracking-[0.16em]">TIEMPO</p>
-                                            <p className="font-mono text-2xl text-quantum-green">{formatDuration(duration)}</p>
-                                        </div>
-                                    </div>
+                ctx.fillStyle = "rgba(255,255,255,0.74)";
+                ctx.font = "12px Share Tech Mono, monospace";
+                ctx.fillText(`${state.satellites.length} VISIBLES`, 16, 24);
+                ctx.fillStyle = state.quality > 66 ? "#2fffa5" : state.quality > 36 ? "#ffd166" : "#ff5d73";
+                ctx.font = "bold 20px Share Tech Mono, monospace";
+                ctx.fillText(`${Math.round(state.quality)}%`, 16, 48);
 
-                                    {(status === "CALLING" || status === "ACTIVE") && (
-                                        <div className="mt-3 h-16 flex items-end justify-center gap-2">
-                                            {waves.map((height, index) => (
-                                                <span
-                                                    key={index}
-                                                    className="wave"
-                                                    style={{ height: status === "ACTIVE" ? `${height}px` : "7px", opacity: status === "ACTIVE" ? 1 : 0.35 }}
-                                                />
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
+                if (state.status === "CALLING" || state.status === "ACTIVE") {
+                    ctx.fillStyle = "rgba(47,255,165,0.82)";
+                    ctx.font = "12px Share Tech Mono, monospace";
+                    ctx.fillText("ENLACE DE VOZ", width - 124, 24);
+                }
 
-                                <div className="grid grid-cols-3 gap-3 max-w-[310px] mx-auto w-full">
-                                    {["1", "2", "3", "4", "5", "6", "7", "8", "9", "+", "0", "#"].map((key) => (
-                                        <button
-                                            type="button"
-                                            key={key}
-                                            onClick={() => dial(key)}
-                                            disabled={status === "STANDBY" || status === "BOOT" || status === "CALLING" || status === "ACTIVE"}
-                                            className="key-button grid place-items-center text-3xl font-display disabled:opacity-30"
-                                        >
-                                            {key}
-                                        </button>
-                                    ))}
-                                </div>
+                state.radarFrame = requestAnimationFrame(drawRadar);
+            }
 
-                                <div className="flex justify-center items-center gap-5 pt-1 pb-2">
-                                    <button
-                                        type="button"
-                                        onClick={() => setNumber((value) => value.slice(0, -1))}
-                                        disabled={!number || status === "STANDBY" || status === "BOOT" || status === "CALLING" || status === "ACTIVE"}
-                                        className="icon-button disabled:opacity-30"
-                                        title="Borrar"
-                                    >
-                                        <i className="ph ph-backspace text-2xl"></i>
-                                    </button>
+            function bindEvents() {
+                els.scanButton.addEventListener("click", () => {
+                    if (state.status === "STANDBY") bootPhone();
+                    else scanCatalog();
+                });
+                els.refreshButton.addEventListener("click", scanCatalog);
+                els.sosButton.addEventListener("click", copySignalPacket);
+                els.deleteButton.addEventListener("click", () => {
+                    if (!isDialLocked()) {
+                        state.number = state.number.slice(0, -1);
+                        render();
+                    }
+                });
+                els.nativeButton.addEventListener("click", openNativeDialer);
+                els.callButton.addEventListener("click", () => {
+                    if (state.status === "CALLING" || state.status === "ACTIVE") endCall();
+                    else startCall();
+                });
+                els.keypad.addEventListener("click", (event) => {
+                    const button = event.target.closest("[data-key]");
+                    if (button) dial(button.dataset.key);
+                });
+                els.backendSave.addEventListener("click", saveBackendUrl);
+                els.backendInput.addEventListener("keydown", (event) => {
+                    if (event.key === "Enter") saveBackendUrl();
+                });
+                window.addEventListener("beforeunload", () => {
+                    cancelAnimationFrame(state.radarFrame);
+                    cancelAnimationFrame(state.audioFrame);
+                    state.mediaStream && state.mediaStream.getTracks().forEach((track) => track.stop());
+                });
+            }
 
-                                    {status === "CALLING" || status === "ACTIVE" ? (
-                                        <button type="button" onClick={() => endCall()} className="icon-button end-button w-20 h-20" title="Colgar">
-                                            <i className="ph-fill ph-phone-disconnect text-4xl"></i>
-                                        </button>
-                                    ) : (
-                                        <button
-                                            type="button"
-                                            onClick={startCall}
-                                            disabled={!number || status === "STANDBY" || status === "BOOT"}
-                                            className="icon-button call-button w-20 h-20 disabled:opacity-35"
-                                            title="Llamar"
-                                        >
-                                            <i className="ph-fill ph-phone text-4xl"></i>
-                                        </button>
-                                    )}
+            function init() {
+                renderConstellations();
+                computeSatellites();
+                bindEvents();
+                render();
+                drawRadar();
+                if (urlBackend) addLog("Backend tomado desde URL.");
+            }
 
-                                    <button
-                                        type="button"
-                                        onClick={openNativeDialer}
-                                        disabled={!number || status === "STANDBY" || status === "BOOT" || status === "CALLING" || status === "ACTIVE"}
-                                        className="icon-button disabled:opacity-30"
-                                        title="Marcador nativo"
-                                    >
-                                        <i className="ph ph-device-mobile-speaker text-2xl"></i>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </section>
-
-                    <aside className="command-deck space-y-3">
-                        <div className="panel p-4">
-                            <div className="flex items-start justify-between gap-4">
-                                <div>
-                                    <p className="font-mono text-xs text-white/48 tracking-[0.18em]">INVICTUS ROUTER</p>
-                                    <h2 className="font-display text-2xl font-bold mt-1">Satcom Assist</h2>
-                                </div>
-                                <div className="text-right">
-                                    <p className="font-mono text-xs text-white/48 tracking-[0.18em]">CALIDAD</p>
-                                    <p className="font-mono text-3xl text-quantum-green">{Math.round(signalQuality)}%</p>
-                                </div>
-                            </div>
-                            <p className="mt-3 text-sm text-white/62 leading-relaxed">
-                                HTML no transmite directo a satelites; este prototipo usa telemetria orbital publica para elegir la mejor ruta visual y voz web cuando el backend esta activo.
-                            </p>
-                            <div className="meter mt-4">
-                                <span style={{ width: `${signalQuality}%` }}></span>
-                            </div>
-                        </div>
-
-                        <div className="panel p-4">
-                            <div className="flex items-center justify-between gap-3 mb-3">
-                                <h3 className="font-display text-sm tracking-[0.18em]">CONSTELACIONES</h3>
-                                <button
-                                    type="button"
-                                    onClick={scanCatalog}
-                                    className="icon-button w-10 h-10"
-                                    title="Actualizar telemetria"
-                                >
-                                    <i className={`ph ${scanState === "SCANNING" ? "ph-circle-notch animate-spin" : "ph-arrows-clockwise"} text-lg`}></i>
-                                </button>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-2">
-                                {CONSTELLATIONS.map((item) => (
-                                    <button
-                                        key={item.id}
-                                        type="button"
-                                        aria-pressed={selectedGroups.includes(item.id)}
-                                        onClick={() => toggleGroup(item.id)}
-                                        className="constellation-button soft-panel px-3 py-2 text-left"
-                                    >
-                                        <span className="block font-display text-xs tracking-[0.12em]" style={{ color: selectedGroups.includes(item.id) ? item.accent : undefined }}>
-                                            {item.label}
-                                        </span>
-                                        <span className="block text-[11px] text-white/44 truncate">{item.description}</span>
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-
-                        <div className="panel p-4">
-                            <div className="flex items-center justify-between mb-3">
-                                <h3 className="font-display text-sm tracking-[0.18em]">SATELITES TOP</h3>
-                                <span className="font-mono text-xs text-white/50">{visibleSatellites.length} visibles</span>
-                            </div>
-                            <div className="space-y-2 max-h-[260px] overflow-auto pr-1 terminal">
-                                {visibleSatellites.slice(0, 7).map((sat) => (
-                                    <div key={sat.id} className="sat-row soft-panel px-3 py-2">
-                                        <div className="min-w-0">
-                                            <p className="font-bold text-sm truncate">{sat.name}</p>
-                                            <p className="font-mono text-[10px] text-white/44 truncate">
-                                                {sat.group} / AZ {Math.round(sat.azimuth)} / {Math.round(sat.range || 0)} km
-                                            </p>
-                                        </div>
-                                        <span className="font-mono text-sm text-quantum-cyan">{Math.round(sat.elevation)} deg</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-
-                        <div className="panel p-4">
-                            <h3 className="font-display text-sm tracking-[0.18em] mb-3">TERMINAL</h3>
-                            <div className="terminal h-[122px] overflow-auto font-mono text-xs text-white/62 space-y-1">
-                                {logs.map((entry, index) => (
-                                    <p key={`${entry}-${index}`} className="truncate">
-                                        <span className="text-quantum-cyan">&gt;</span> {entry}
-                                    </p>
-                                ))}
-                            </div>
-                        </div>
-                    </aside>
-                </main>
-            );
-        }
-
-        ReactDOM.createRoot(document.getElementById("root")).render(<QuantumPhone />);
+            init();
+        })();
     </script>
 </body>
 </html>
